@@ -1,0 +1,19 @@
+{{- if and .Values.route .Values.route.enabled }}
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: {{ include "common.names.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  to:
+    kind: Service
+    name: {{ include "common.names.fullname" . }}
+    weight: 100
+  port:
+    targetPort: {{ .Values.route.targetPort }}
+{{- if .Values.route.tls }}
+  tls:
+{{- toYaml .Values.route.tls | nindent 4 }}
+{{- end }}
+  wildcardPolicy: None
+{{- end }}

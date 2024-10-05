@@ -1,0 +1,50 @@
+# Default values for redis-observability.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+global:
+  name: redis-overview
+  namespace:
+
+grafana:
+  folder: # Redis
+  instanceSelector:
+    matchLabels:
+      app: "grafana"
+  redisExporterOverview:
+    enabled: true
+  dashboard:
+    datasources:
+      - inputName: "DS_PROMETHEUS"
+        datasourceName: "Prometheus"
+prometheus:
+  serviceMonitor:
+    enabled: true
+    spec:
+      endpoints:
+        - port: redis-exporter
+          scheme: http
+          interval: 10s
+          scrapeTimeout: 5s
+          path: /metrics
+      selector:
+        matchLabels:
+          app: redis
+          redis_setup_type: standalone
+          role: standalone
+      namespaceSelector:
+        any: true
+  rules:
+    labels: {}
+    redisDown:
+      enabled: true
+    redisClusterSlotPfail:
+      enabled: true
+    redisClusterSlotFail:
+      enabled: true
+    redisClusterStateNotOk:
+      enabled: true
+    redisOutOfMemory:
+      enabled: true
+    redisTooManyConnections:
+      enabled: true
+      redisConnectionsThreshold: 5

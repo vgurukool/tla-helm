@@ -1,0 +1,20 @@
+{{- if and ( .Values.grafana.resourceUtilization ) ( .Values.grafana.resourceUtilization.enabled ) }}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: resource-utilization-dashboard 
+  namespace: {{ .Values.global.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "resource-observability.labels" . | nindent 4 }}
+spec:
+  folder: {{ .Values.grafana.folder }}
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    {{ toYaml .Values.grafana.instanceSelector | nindent 3 }}
+  datasources:
+    {{ toYaml .Values.dashboard.datasources | nindent 3 }}
+  resyncPeriod: 5s
+  configMapRef:
+    name: resource-utilization-dashboard-definition
+    key: json
+  {{- end }}

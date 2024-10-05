@@ -1,0 +1,34 @@
+# key:value
+check_results_every_seconds: 3
+keep_history: 1
+make_viewer_endpoints_public: 1
+security:
+  enabled: 1
+  password: password
+  user: admin
+  secret: '' #when you have secret object defined with username/password info ie SealedSecrets
+image_repository: quay.io
+image_name: allure
+image_namespace: eformat
+image_version: latest
+# use the image specified above as tag (else tag overridden in pipeline say)
+istag:
+  enabled: true
+route: true
+persistence:
+  allure_data:
+    enabled: true
+    annotations: {}
+    storageClass:
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    mountPath: /app/projects
+    storageClass: stakater
+  allure_swagger:
+    enabled: true
+    annotations: {}
+    storageClass:
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    mountPath: /app/allure-docker-api/static/swagger
+    storageClass: stakater

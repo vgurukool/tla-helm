@@ -1,0 +1,41 @@
+postgres:
+  name: postgres
+  postgresVersion: 14
+  pg_hba:
+    - "hostnossl all all all password"
+    - "host  all  all 0.0.0.0/0 md5"
+  users:
+  - name: documentservice-user
+    databases:
+      - documentservice-db
+  instances:
+    - name: instance1
+      dataVolumeClaimSpec:
+        accessModes:
+        - "ReadWriteOnce"
+        resources:
+          requests:
+            storage: 10Gi
+  repo:
+    name: repo1
+    storage: 1Gi
+
+  global:
+    retentionCount: 1
+    retentionType: count
+    pushQueueMax: 5G
+
+  exporter:
+    enabled: true
+    service:
+      name: postgres-exporter
+      portName: exporter
+      protocol: TCP
+      port: 9187
+      targetPort: 9187
+      labels:
+        postgres-operator.crunchydata.com/crunchy-postgres-exporter: 'true'
+        postgres-operator.crunchydata.com/cluster: postgres
+      selector:
+        postgres-operator.crunchydata.com/crunchy-postgres-exporter: 'true'
+        postgres-operator.crunchydata.com/cluster: postgres

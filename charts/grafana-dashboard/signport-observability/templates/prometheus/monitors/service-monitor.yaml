@@ -1,0 +1,17 @@
+{{- if .Values.prometheus.serviceMonitors }}
+{{- range .Values.prometheus.serviceMonitors }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.global.namespace | default $.Release.Namespace }}
+  labels:
+    {{- include "signport-observability.labels" $ | nindent 4 }}
+    {{- if .labels }}
+    {{- toYaml .labels | nindent 4 }}
+    {{- end }}
+  # If labels are defined in spec.serviceMonitorSelector.matchLabels of your deployed Prometheus object, make sure to include them here.
+spec:
+  {{- toYaml .specs | nindent 2 }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,90 @@
+# Default values for mattermost-instance.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+namespace:
+  createNamespace: false
+  labels:
+    stakater.com/tenant: genesis
+
+tenant:
+  enabled: true
+  name: stakater-mattermost
+  rbac:
+    enabled: true
+  forecastle:
+    enabled: true
+    name: Mattermost
+    group: Stakater
+    icon: https://user-images.githubusercontent.com/7205829/137170381-fe86eef0-bccc-4fdd-8e92-b258884ebdd7.png
+  route:
+    enabled: true
+    name: stakater
+    host: stakater-mattermost-instance.apps.devtest.vxdqgl7u.kubeapp.cloud
+    tls:
+      termination: edge
+      insecureEdgeTerminationPolicy: Redirect
+  licenseSecret: ""
+  database:
+    external: true
+    sealedSecret: true
+    secretName: mattermost-postgres-connection
+    connectionString: AgCHEddZlZgRm2NF+AD4e9ZTR82kyVsNDFwApmZm5BqeGWpDYtK+DCi0a767agAjwRR3mdpxzvpQKgmjz4I9yFI1sLzjr1N8AlcPKDtKDt+iD7NOX/C7mALo3qXeuRbc/YQQyyCODVzo9ob/WMDD1szXOb0QXAhO51DxFQTK06ql/elnisSwh5kKjKBRZzAx7kMEVYJ+awqIEOtJs5p+l6xtpfE1DJHB6eNrHXnw/jecM87H7DXH26+4zdCNf4Bb7aZxHbnTVmj3PUgXOFz2j/+x84glUWNXnBKALSKzP/wA5OYAMl1AH+NcOqQX8S/UOg5POb3tCxa8+ac8IJw8lBxTtl6ipk+sD1rEdnDB894iTUWxhkEDUuzTBtDGxB85AgT7J/JFrcQbhdbyCnEV5vWs7La7eJcJT7siGPZS1tN3S/c9xtw9kdNOqEAzmUf4bmvN9mALgF6lbddyGSDBMu5TcvCxgntHYk4eg5NCZK8+tdgdHwjJdNqRs8J+PpfwbjYgY9IDZYymy+qG4yR4OUFfMCIjhWGn7qIIhunWe0NfkawESFKWQYIFf05oOkkWSlmWOZqDkr8Kkn83amFRA05Wev7DyRb4PjTKf5ejMdxCF/vE8QzuYk2ZDvod+xvRgx/Ma6qj/YSMNfLWMmD33vxbW1DNDPWVv0FNJDxwnUXM1ZTDTbZY13Vn+EsIj5aUMOo61Q+Lj4nOQ/EFa6m4ECgv8svWb+BTqSjx1ZVDoVKw4fjh83uyJF2YZzvDqJutaNHaVmuMgZaLe2UVIpzzdA+OorXMaifz4FbxD/eHDmVOYJjn10OfiLgcsrH3oVuWxVc8UgPC65Vhm4YXhAlOGF/yp7399nIuoiFRfl7RoFr6XXp8Tw==
+  fileStore:
+    external: true
+    url: minio.mattermost-instance.svc:80
+    bucket: test
+    secretName: minio-creds-secret
+  ingress:
+    enabled: false
+    host: stakater-mattermost-instance.apps.devtest.vxdqgl7u.kubeapp.cloud
+  size: 500users                               # Adjust to your requirements
+  replicas: 2
+  scheduling:
+    resources:
+      limits:
+        cpu: '2'
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 500Mi
+  probes:
+    livenessProbe:
+      httpGet:
+        path: /api/v4/system/ping
+        port: 8065
+        scheme: HTTP
+      initialDelaySeconds: 60
+      timeoutSeconds: 50
+      periodSeconds: 10
+      successThreshold: 1
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /api/v4/system/ping
+        port: 8065
+        scheme: HTTP
+      initialDelaySeconds: 60
+      timeoutSeconds: 50
+      periodSeconds: 10
+      successThreshold: 1
+      failureThreshold: 6
+
+postgres-instance:
+  enabled: true
+
+minio:
+  enabled: true
+  secret:
+    enabled: false
+  sealedSecret:
+    enabled: true
+    labels:
+      # key: value
+    annotations:
+      # key: value
+    files:
+    - name: minio-creds-secret
+      encryptedData:
+        accesskey: AgCEGU9TgW79VKGB/kTZmC+iEoBTF6KLs6lnqDmEwvNYAT7HEEdPk4Dcxk0Q/4WWW6TS67NPDm+5mSw+1yunZwHVgliW361gX4xnn2U1etPW40QkWgji/FVlgOYkF57YsBQNS2AjSFKO0iGlUNPQG7QfEU8HtuTqfqF70w6xqUFXFRvuiGVO9wGT5XiSFfsOJu+oxbUvC1fo57u2UUK7sn5eQIFxQiNu1ZvSnGdw6p63pcJSpWtLiRpe0Zplv7hASGj8mRpGYj+z2i/sWs+El9Hp8xCDSCkOrWbXTARm1TBJKoSUz2lJeQ5TZPSzfztSwWb7upQlNveX8DbUWw6N8eAwmTEmGt/46CPZR5o2m4qUy815xCn7k50kEiSw7sHNywjNEXiZvEf6P0NFUSz4Gg9lj2LhzjfyKIo6NphtOQV7AYmny+OACJ50s+InKH17eJMaaf3/HJroOF60/6ZABHHULpZJYmDjAFkLSOR9J3/7GkBW2K51Kqz+bXhySWaBurtEWpnrPzK8Ri6ncOhhU4CUzCGn5QHesludr275E4EpjD/L509nGMNB1GZRVY1AZQCf3dkjrkqe6RcFvTInCNzE3KThpSXIEckN4xgFAVgoQ8gXwQfWcqItL9F4aHFppPDFI6cns+Xy9aOxB0R4ha8bo44+/jgZF/geLSgc8B3s7HB4W7NHuy9RantNo4K0LWL/LCfzBg==
+        secretkey: AgADlyacndHSHnza6okE06420z3cOV90R1IzSKeA0up657tybGv6hWGhcHxt2XtZJtT5NtDjUwlYKLftqeDkwrXUEpUR5SlHkx8ey2Ws1iTr/1z+LuAOEVGz6D/epTXnO+Og28DNwudFc51jYSJu6GssY428dAafQcubACj8EdoSfyowHXx3Ibo+9p19aEgSgMdNO55GtwNSU32VrNbgNwDPJf7IsiX392u1j9Qfgpwgrff/fJXbx0vUYAhQ37jpFsWBOoMAudZymv8ed7fVX9W5xFLXar0jKnmo5cXSCuLlQxB/pumU/3Slm0vjPrljkmQbsd1RY8V/XFmG9HktRH3rLdNaYgQF9zVfUF7oue+b+lPF/wih9RQcR9JAk/LJYLY4r1Kph9wn2SC+izTDSGADGO8pLPPwhmC55XowhQrqWtqxtiSkCMz3vpF9eRdOvjKJ3Px4g/31aFgOZ1oFkJVbIammRvzWGYtwZSlcrWfd9AG3uCnJWa/RCENN1ukUByLyyBuzFRFjjFAjwOoqN9pYUDBPp4ef1eUtHvkQkQZhXINQUAarM036QKgMUtYOirxlaWH/JCl7uMgOexGPXzFnxIC2SPwGDDjyqam5dX6nvjXbrby4d0EyMdL8kp6YP3m7ogP65UZj89lLKZsOymn0jc+xPs+0dq4gOwRG9vX4VEVsLTpT/5M0yg9Vlj1KHi6UZmVYKUkOTQ==

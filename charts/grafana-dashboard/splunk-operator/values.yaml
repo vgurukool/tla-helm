@@ -1,0 +1,18 @@
+# Default values for splunk-operator.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  clusterScope: "false"
+  namespace: splunk-operator
+
+metrics:
+  clusterRole:
+    enabled: true
+
+proxy:
+  clusterRole:
+    enabled: true
+
+instance:
+  enabled: true

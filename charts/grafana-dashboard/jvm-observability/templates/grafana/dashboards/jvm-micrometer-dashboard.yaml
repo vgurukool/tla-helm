@@ -1,0 +1,19 @@
+{{- if and ( .Values.jvmObservability.jvmMicrometer ) ( .Values.jvmObservability.jvmMicrometer.enabled ) }}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: {{- include "jvm-observability.name" . | indent 1 }}-dashboard
+  namespace: {{- include "jvm-observability.namespace" . | indent 1 }}
+  labels:
+    {{- include "jvm-observability.labels" . | nindent 4 }}
+spec:
+  folder: {{ .Values.grafana.folder }}
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    {{ toYaml .Values.grafana.instanceSelector | nindent 3 }}
+  datasources:
+    {{ toYaml .Values.grafana.datasources | nindent 3 }}
+  configMapRef:
+    name: {{- include "jvm-observability.name" . | indent 1 }}-definition
+    key: json
+{{- end }}

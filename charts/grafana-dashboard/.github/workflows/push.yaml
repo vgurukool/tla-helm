@@ -1,0 +1,81 @@
+name: Push
+on:
+  workflow_call:
+    inputs:
+      CONTAINER_REGISTRY_URL:
+        required: true
+        type: string
+
+      HELM_REGISTRY_URL:
+        required: true
+        type: string
+
+      SUBPATH:
+        required: true
+        type: string
+
+      NEXT_VERSION:
+        required: false
+        type: string
+
+    secrets:
+      REGISTRY_USERNAME:
+        description: "Username for container registry to login"
+        required: true
+
+      REGISTRY_PASSWORD:
+        description: "Password for container registry to login"
+        required: true
+
+jobs:
+  package-and-push-helm-chart:
+    name: Package and Push Helm Chart
+    runs-on: ubuntu-latest
+    if: |
+      always() && !contains(needs.*.result, 'failure')
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: '0'
+
+    - name: Login to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ inputs.CONTAINER_REGISTRY_URL }}
+        username: ${{ secrets.REGISTRY_USERNAME }}
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+
+    - name: Test and Package Helm Chart
+      run: |
+        helm dependency build  ${{ inputs.SUBPATH }}/
+        sed -i "s/^version:.*/version:  ${{ inputs.NEXT_VERSION }}/" ${{ inputs.SUBPATH }}/Chart.yaml
+        helm lint ${{ inputs.SUBPATH }}/
+        helm -n test template ${{ inputs.SUBPATH }} ${{ inputs.SUBPATH }}/
+        helm package ${{ inputs.SUBPATH }}/
+
+    - name: Push Helm Chart to Registry
+      run: |
+        helm push ${{ inputs.SUBPATH }}-${{ inputs.NEXT_VERSION }}.tgz ${{ inputs.HELM_REGISTRY_URL }}
+
+  release:
+    name: Create Release on GitHub
+    if: |
+      always() && !contains(needs.*.result, 'failure')
+    runs-on: ubuntu-latest
+    needs:
+    - package-and-push-helm-chart
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ inputs.SUBPATH }}-${{ inputs.NEXT_VERSION }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
