@@ -44,3 +44,5 @@ metadata:
   labels:
     io.kompose.service: app-env
   name: env
+  namespace: tla-lrs
+

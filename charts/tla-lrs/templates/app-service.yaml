@@ -7,6 +7,8 @@ metadata:
   labels:
     io.kompose.service: app
   name: app
+  namespace: tla-lrs
+
 spec:
   ports:
     - name: "8100"
