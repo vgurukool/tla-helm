@@ -1,0 +1,6 @@
+elasticsearch:
+  enabled: true
+mongodb:
+  enabled: true
+clickhouse:
+  enabled: true
