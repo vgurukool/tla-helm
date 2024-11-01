@@ -1,0 +1,34 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backups
+  labels:
+    app.kubernetes.io/name: decentci-backups
+    app.kubernetes.io/component: config
+data:
+  global: |
+    enabled: true
+    engine: "restic"
+    restic:
+      repo:
+        configFileKey: "restic.conf"
+        resticRepositoryBase: "s3:https://ncsa.osn.xsede.org/phy230156-bucket01/backups/apps/indico"
+    alerts:
+      matrix:
+        existingSecret: backup-alerts
+        urlKey: matrix-url
+  backups: |
+    - backup-name: indico-files
+      source-pvc: indico-files
+      schedule: "51 6 * * *"
+    - backup-name: indico-db
+      schedule: "51 6 * * *"
+      database:
+        type: postgresql
+        host: indico-db
+        auth:
+          username: indico
+          database: indico
+          existingSecret: indico-secrets
+          passwordKey: postgres-password

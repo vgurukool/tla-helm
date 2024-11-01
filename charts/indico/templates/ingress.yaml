@@ -1,0 +1,24 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}
+  annotations:
+    kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  rules:
+  - host: {{ .Values.indico.ingress.host | quote }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ .Values.indico.service.name }}
+            port:
+              number: {{ .Values.indico.service.port }}
+        path: /{{ .Values.indico.ingress.path }}
+        pathType: Prefix
+  tls:
+  - hosts:
+    - {{ .Values.indico.ingress.host | quote }}
+    secretName: {{ .Values.indico.ingress.host | replace "." "-" | printf "%s-tls" | quote }}

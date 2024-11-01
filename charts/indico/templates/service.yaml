@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.indico.service.name }}
+spec:
+  selector:
+    app: indico
+  ports:
+  - name: nginx
+    port: {{ .Values.indico.service.port }}
+    protocol: TCP
+    targetPort: {{ .Values.indico.service.port }}
+  - name: app
+    port: 59999
+    protocol: TCP
+    targetPort: 59999

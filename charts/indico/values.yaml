@@ -1,0 +1,65 @@
+indico:
+  debug: "False"
+  useProxy: "True"
+  protocol: "https"
+  deployment:
+    replicas: 3
+    app:
+      image:
+        repository: "registry.gitlab.com/nsf-muses/deployment/kubernetes/indico-worker"
+        tag: "3.2.3"
+        pullPolicy: "Always"
+    nginx:
+      image:
+        repository: "registry.gitlab.com/nsf-muses/deployment/kubernetes/indico-nginx"
+        tag: "3.2.3"
+        pullPolicy: "Always"
+  service:
+    name: indico-web
+    ## NGINX reverse proxy port
+    port: 8080
+  ingress:
+    host: "events.musesframework.io"
+    path: ""
+  redisCacheBaseUrl: "indico-redis-master"
+  email:
+    support: "manninga@illinois.edu"
+    noreply: "devnull@ncsa.illinois.edu"
+    smtp:
+      server: "smtp.ncsa.uiuc.edu"
+      port: "25"
+  auth:
+    ## localIdentities must be set to "True" to bootstrap the application because an initial admin
+    ## account must be created. After OIDC is configured, another user can be granted admin privileges
+    ## after which localIdentities can be disabled to avoid the Indico login page.
+    localIdentities: "False"
+    oidc:
+      title: 'MUSES Account'
+      clientId: 'muses-indico'
+      profileUrl: 'https://keycloak.muses.ncsa.illinois.edu/realms/MUSES/account/#/personal-info'
+      metadataUrl: 'https://keycloak.muses.ncsa.illinois.edu/realms/MUSES/.well-known/openid-configuration'
+redis:
+  fullnameOverride: "indico-redis"
+  auth:
+    enabled: false
+    # existingSecret: "indico-secrets"
+    # existingSecretPasswordKey: "password"
+  architecture: replication
+  master:
+    persistence:
+      storageClass: "longhorn"
+      size: 500Mi
+  replica:
+    persistence:
+      storageClass: "longhorn"
+      size: 500Mi
+    replicaCount: 2
+postgresql:
+  fullnameOverride: "indico-db"
+  auth:
+    username: "indico"
+    database: "indico"
+    existingSecret: "indico-secrets"
+  primary:
+    persistence:
+      existingClaim: indico-db

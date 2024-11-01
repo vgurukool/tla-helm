@@ -1,0 +1,65 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: indico
+  {{- with .Values.indico.deployment.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.indico.deployment.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: indico
+  template:
+    metadata:
+      labels:
+        app: indico
+    spec:
+      volumes:
+      - name: config
+        configMap:
+          name: "{{ .Release.Name }}-config"
+      - name: files
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-files
+      containers:
+      - name: app
+        image: {{ .Values.indico.deployment.app.image.repository }}:{{ .Values.indico.deployment.app.image.tag }}
+        imagePullPolicy: {{ .Values.indico.deployment.app.image.pullPolicy }}
+        volumeMounts:
+        - name: files
+          mountPath: /opt/indico/archive
+          subPath: archive
+        - name: files
+          mountPath: /opt/indico/custom
+          subPath: customization
+        env:
+          {{- include "indico.env" . | nindent 10 }}
+        command:
+        - /opt/indico/run_indico.sh
+      - name: celery
+        image: {{ .Values.indico.deployment.app.image.repository }}:{{ .Values.indico.deployment.app.image.tag }}
+        imagePullPolicy: {{ .Values.indico.deployment.app.image.pullPolicy }}
+        volumeMounts:
+        - name: files
+          mountPath: /opt/indico/archive
+          subPath: archive
+        - name: files
+          mountPath: /opt/indico/custom
+          subPath: customization
+        env:
+          {{- include "indico.env" . | nindent 10 }}
+        command:
+        - /opt/indico/run_celery.sh
+      - name: nginx
+        image: {{ .Values.indico.deployment.nginx.image.repository }}:{{ .Values.indico.deployment.nginx.image.tag }}
+        imagePullPolicy: {{ .Values.indico.deployment.nginx.image.pullPolicy }}
+        env:
+          {{- include "indico.env" . | nindent 10 }}
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: nginx.conf
+          readOnly: true
