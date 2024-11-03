@@ -19,7 +19,8 @@ indico:
     ## NGINX reverse proxy port
     port: 8080
   ingress:
-    host: "events.musesframework.io"
+    # host: "events.musesframework.io"
+    host: "indico.tlaidp.com"
     path: ""
   redisCacheBaseUrl: "indico-redis-master"
   email:
