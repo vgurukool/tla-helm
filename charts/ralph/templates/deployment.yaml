@@ -2,8 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "ralph.fullname" . }}
-  # namespace: {{ .Release.Namespace | quote }}
-  namespace: tla-lrs
+  namespace: {{ .Release.Namespace | quote }}
   labels:
     {{- include "ralph.labels" . | nindent 4 }}
 spec:

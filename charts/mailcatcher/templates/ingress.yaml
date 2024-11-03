@@ -1,0 +1,33 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ template "mailcatcher.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{- include "mailcatcher.selectorLabels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.ingress.annotations }}
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if $.Values.ingress.tls.enable }}
+  tls:
+  - hosts:
+      - {{ $.Values.ingress.host }}
+    secretName: {{ $.Values.ingress.tls.certificateSecretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "mailcatcher.fullname" . }}
+                port:
+                  number: 1080
+{{- end }}

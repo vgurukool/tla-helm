@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "clamav.fullname" . }}-clamd
+  labels:
+    {{- include "clamav.selectorLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "clamav.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "clamav.selectorLabels" . | nindent 8 }}
+    spec:
+      volumes:
+        - name: clamad-conf
+          configMap:
+            name: {{ include "clamav.fullname" . }}-clamd
+        {{- if .Values.persistentVolume.enable }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "clamav.pvcname" . }}
+        {{- end }}
+        {{- range $i, $scanDir := .Values.scanDirs }}
+        - name: "scan-{{ $scanDir.pvcName }}"
+          persistentVolumeClaim:
+            claimName: {{ $scanDir.pvcName }}
+        {{- end }}
+      containers:
+        - name: {{ include "clamav.fullname" . }}-clamd
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [ "/init-unprivileged" ]
+          env:
+            - name: CLAMAV_NO_FRESHCLAMD
+              value: "true"
+            - name: CLAMAV_NO_MILTERD
+              value: "true"
+          volumeMounts:
+            - name: clamad-conf
+              mountPath: /etc/clamav/clamd.conf
+              subPath: clamd.conf
+              readOnly: true
+          {{- if .Values.persistentVolume.enable }}
+            - name: data
+              mountPath: /var/lib/clamav
+          {{- end }}
+          {{- range $i, $scanDir := .Values.scanDirs }}
+            - name: "scan-{{ $scanDir.pvcName }}"
+              mountPath: {{ $scanDir.mountPath }}
+          {{- end }}
+          ports:
+            - name: clamad
+              containerPort: {{ .Values.clamd.config.tcpSocket }}
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: clamad
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

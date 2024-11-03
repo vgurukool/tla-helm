@@ -1,0 +1,15 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ include "clamav.fullname" . }}-clamd
+data:
+  clamd.conf: |
+    PidFile /tmp/clamd.pid
+    LocalSocket /tmp/clamd.sock
+    TCPSocket {{ .Values.clamd.config.tcpSocket }}
+    SelfCheck 600
+    User clamav
+    ###
+    # Limits
+    ###
+    MaxScanSize {{ .Values.clamd.config.maxScanSize }}

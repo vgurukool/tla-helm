@@ -3,7 +3,6 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ include "ralph.fullname" . }}
-  namespace: tla-lrs
   labels:
     {{- include "ralph.labels" . | nindent 4 }}
 spec:

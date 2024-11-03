@@ -2,7 +2,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "ralph.fullname" . }}
-  namespace: tla-lrs
   labels:
     {{- include "ralph.labels" . | nindent 4 }}
 spec:

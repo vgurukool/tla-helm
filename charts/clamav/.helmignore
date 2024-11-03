@@ -1,0 +1,4 @@
+# Ignore git
+.git*
+# Ingore helm package
+clamav-*.tgz

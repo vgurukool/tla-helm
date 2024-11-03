@@ -1,0 +1,510 @@
+image:
+  registry: docker.io
+  repository: fundocker/moodle
+  tag: 4.1.6_u0
+  pullPolicy: Always
+web:
+  replicaCount: 2
+  htaccess:
+    config:
+adhoc_task:
+  replicaCount: 2
+  ttl: 3600
+database:
+  host: "my-release-postgresql"
+  port: 5432
+  name: "moodle"
+  user: "moodle"
+  password: ""
+  passwordSecretName: "moodle-database-password"
+data:
+  pvc: "moodle-data"
+  size: 10G
+  storageClass:
+http:
+  host: "moodle.local"
+  https:
+    certificateSecretName: ""
+  port: 80
+  reverse_proxy: false
+  ssl_proxy: false
+moodle:
+  admin:
+    password: "admin_password"
+    passwordSecretName: "moodle-admin-password"
+    email: admin@moodle.local
+  no_reply_email: no-reply@moodle.local
+smtp:
+  host: mail.moodle.local
+  port: ""
+  security: "" 
+  user: ""
+  auth_mode: ""
+  passwordSecretName:
+ingress:
+  annotations:
+cron:
+  suspend: false
+  default:
+    auth-cas-task-sync:
+      task: \auth_cas\task\sync_task   
+      schedule: "0 0 * * *"
+      suspend: true
+    auth-db-task-sync-users:
+      task: \auth_db\task\sync_users
+      schedule: "10 3 * * *"
+      suspend: true
+    auth-ldap-task-sync-roles:
+      task: \auth_ldap\task\sync_roles
+      schedule: "0 0 * * *"
+      suspend: true
+    auth-ldap-task-sync:
+      task: \auth_ldap\task\sync_task
+      schedule: "0 0 * * *"
+      suspend: true
+    auth-mnet-task:
+      task: \auth_mnet\task\cron_task
+      schedule: "*/10 * * * *"
+      suspend: true
+    block-recent-activity-task-cleanup:
+      task: \block_recent_activity\task\cleanup
+      schedule: "8 7 * * *"
+      suspend: false
+    block-rss-client-task-refreshfeeds:
+      task: \block_rss_client\task\refreshfeeds
+      schedule: "*/5 * * * *"
+      suspend: true
+    cachestore-redis-task-ttl:
+      task: \cachestore_redis\task\ttl
+      schedule: "42 * * * *"
+      suspend: false
+    editor-atto-task-autosave-cleanup:
+      task: \editor_atto\task\autosave_cleanup_task
+      schedule: "6 5 2 * 2"
+      suspend: false
+    enrol-category-task-enrol-category-sync:
+      task: \enrol_category\task\enrol_category_sync
+      schedule: "* * * * *"
+      suspend: true
+    enrol-cohort-task-enrol-cohort-sync:
+      task: \enrol_cohort\task\enrol_cohort_sync
+      schedule: "47 * * * *"
+      suspend: false
+    enrol-database-task-sync-enrolments:
+      task: \enrol_database\task\sync_enrolments
+      schedule: "24 13 * * *"
+      suspend: true
+    enrol-flatfile-task-flatfile-sync:
+      task: \enrol_flatfile\task\flatfile_sync_task
+      schedule: "15 * * * *"
+      suspend: true
+    enrol-imsenterprise-task:
+      task: \enrol_imsenterprise\task\cron_task
+      schedule: "10 * * * *"
+      suspend: true
+    enrol-ldap-task-sync-enrolments:
+      task: \enrol_ldap\task\sync_enrolments
+      schedule: "48 20 * * *"
+      suspend: true
+    enrol-lti-local-ltiadvantage-task-sync-grades:
+      task: \enrol_lti\local\ltiadvantage\task\sync_grades
+      schedule: "*/30 * * * *"
+      suspend: true
+    enrol-lti-local-ltiadvantage-task-sync-members:
+      task: \enrol_lti\local\ltiadvantage\task\sync_members
+      schedule: "*/30 * * * *"
+      suspend: true
+    enrol-lti-task-sync-grades:
+      task: \enrol_lti\task\sync_grades
+      schedule: "*/30 * * * *"
+      suspend: true
+    enrol-lti-task-sync-members:
+      task: \enrol_lti\task\sync_members
+      schedule: "*/30 * * * *"
+      suspend: true
+    enrol-manual-task-send-expiry-notif:
+      task: \enrol_manual\task\send_expiry_notifications
+      schedule: "*/10 * * * *"
+      suspend: false
+    enrol-manual-task-sync-enrolments:
+      task: \enrol_manual\task\sync_enrolments
+      schedule: "*/10 * * * *"
+      suspend: false
+    enrol-meta-task-enrol-meta-sync:
+      task: \enrol_meta\task\enrol_meta_sync
+      schedule: "9 * * * *"
+      suspend: true
+    enrol-paypal-task-process-expirations:
+      task: \enrol_paypal\task\process_expirations
+      schedule: "* * * * *"
+      suspend: true
+    enrol-self-task-send-expiry-notif:
+      task: \enrol_self\task\send_expiry_notifications
+      schedule: "*/10 * * * *"
+      suspend: false
+    enrol-self-task-sync-enrolments:
+      task: \enrol_self\task\sync_enrolments
+      schedule: "*/10 * * * *"
+      suspend: false
+    logstore-standard-task-cleanup:
+      task: \logstore_standard\task\cleanup_task
+      schedule: "7 4 * * *"
+      suspend: false
+    ltiservice-gradebookservices-tsk-clup:
+      task: \ltiservice_gradebookservices\task\cleanup_task
+      schedule: "38 23 * * *"
+      suspend: false
+    message-email-task-send-email:
+      task: \message_email\task\send_email_task
+      schedule: "0 22 * * *"
+      suspend: false
+    mod-assign-task:
+      task: \mod_assign\task\cron_task
+      schedule: "* * * * *"
+      suspend: false
+    mod-bbb-task-check-dismissed-rcrd:
+      task: \mod_bigbluebuttonbn\task\check_dismissed_recordings
+      schedule: "* * */10 * *"
+      suspend: true
+    mod-bbb-task-check-pending-rcrd:
+      task: \mod_bigbluebuttonbn\task\check_pending_recordings
+      schedule: "*/5 * * * *"
+      suspend: true
+    mod-chat-task:
+      task: \mod_chat\task\cron_task
+      schedule: "*/5 * * * *"
+      suspend: false
+    mod-forum-task:
+      task: \mod_forum\task\cron_task
+      schedule: "* * * * *"
+      suspend: false
+    mod-lti-task-clean-access-tokens:
+      task: \mod_lti\task\clean_access_tokens
+      schedule: "31 12 * * *"
+      suspend: false
+    mod-quiz-task-legacy-quiz-accessrules:
+      task: \mod_quiz\task\legacy_quiz_accessrules_cron
+      schedule: "* * * * *"
+      suspend: false
+    mod-quiz-task-legacy-quiz-reports:
+      task: \mod_quiz\task\legacy_quiz_reports_cron
+      schedule: "* * * * *"
+      suspend: false
+    mod-quiz-tsk-notif-man-grd-cplt:
+      task: \mod_quiz\task\quiz_notify_attempt_manual_grading_completed
+      schedule: "51 * * * *"
+      suspend: false
+    mod-quiz-task-update-overdue-attempts:
+      task: \mod_quiz\task\update_overdue_attempts
+      schedule: "* * * * *"
+      suspend: false
+    mod-scorm-task:
+      task: \mod_scorm\task\cron_task
+      schedule: "*/5 * * * *"
+      suspend: false
+    mod-workshop-task:
+      task: mod_workshop_task_cron_task
+      schedule: "* * * * *"
+      suspend: true
+    mod-workshop-task-legacy-allocation:
+      task: \mod_workshop\task\legacy_workshop_allocation_cron
+      schedule: "* * * * *"
+      suspend: true
+    core-oauth2-refresh-system-tokens:
+      task: \core\oauth2\refresh_system_tokens_task
+      schedule: "30 * * * *"
+      suspend: false
+    core-task-analytics-cleanup:
+      task: \core\task\analytics_cleanup_task
+      schedule: "42 * * * *"
+      suspend: false
+    core-task-antivirus-cleanup:
+      task: \core\task\antivirus_cleanup_task
+      schedule: "29 0 * * *"
+      suspend: false
+    core-task-automated-backup:
+      task: \core\task\automated_backup_task
+      schedule: "50 * * * *"
+      suspend: false
+    core-task-backup-cleanup:
+      task: \core\task\backup_cleanup_task
+      schedule: "10 * * * *"
+      suspend: false
+    core-task-badges-cron-task :
+      task: \core\task\badges_cron_task
+      schedule: "*/5 * * * *"
+      suspend: false
+    core-task-badges-message:
+      task: \core\task\badges_message_task
+      schedule: "*/5 * * * *"
+      suspend: false
+    core-task-blog:
+      task: \core\task\blog_cron_task
+      schedule: "* * * * *"
+      suspend: false
+    core-task-cache-cleanup_task:
+      task: \core\task\cache_cleanup_task
+      schedule: "30 * * * *"
+      suspend: false
+    core-task-cache:
+      task: \core\task\cache_cron_task
+      schedule: "50 * * * *"
+      suspend: false
+    core-task-calendar:
+      task: \core\task\calendar_cron_task
+      schedule: "* * * * *"
+      suspend: false
+    core-task-check-for-updates:
+      task: \core\task\check_for_updates_task
+      schedule: "21 9 * * *"
+      suspend: false
+    core-task-complete-plans:
+      task: \core\task\complete_plans_task
+      schedule: "51 * * * *"
+      suspend: false
+    core-task-completion-daily:
+      task: \core\task\completion_daily_task
+      schedule: "2 4 * * *"
+      suspend: false
+    core-task-completion-regular:
+      task: \core\task\completion_regular_task
+      schedule: "* * * * *"
+      suspend: false
+    core-task-context-cleanup:
+      task: \core\task\context_cleanup_task
+      schedule: "25 * * * *"
+      suspend: false
+    core-task-create-contexts:
+      task: \core\task\create_contexts_task
+      schedule: "0 0 * * *"
+      suspend: false
+    core-task-delete-incomplete-users:
+      task: \core\task\delete_incomplete_users_task
+      schedule: "5 * * * *"
+      suspend: false
+    core-task-delete-unconfirmed-users:
+      task: \core\task\delete_unconfirmed_users_task
+      schedule: "0 * * * *"
+      suspend: false
+    core-task-file-temp-cleanup:
+      task: \core\task\file_temp_cleanup_task
+      schedule: "55 */6 * * *"
+      suspend: false
+    core-task-file-trash-cleanup:
+      task: \core\task\file_trash_cleanup_task
+      schedule: "55 */6 * * *"
+      suspend: false
+    core-task-grade:
+      task: \core\task\grade_cron_task
+      schedule: "* * * * *"
+      suspend: false
+    core-task-grade-history-cleanup:
+      task: \core\task\grade_history_cleanup_task
+      schedule: "0 1 * * *" # Default "* 0 * * *"
+      suspend: false
+    core-task-h5p-clean-orphaned-records:
+      task: \core\task\h5p_clean_orphaned_records_task
+      schedule: "43 0 * * *"
+      suspend: false
+    core-task-h5p-get-content-types:
+      task: \core\task\h5p_get_content_types_task
+      schedule: "43 2 1 * *"
+      suspend: false
+    core-task-legacy-plugin:
+      task: \core\task\legacy_plugin_cron_task
+      schedule: "* * * * *"
+      suspend: false
+    core-task-messaging-cleanup:
+      task: \core\task\messaging_cleanup_task
+      schedule: "35 * * * *"
+      suspend: false
+    core-task-password-reset-cleanup:
+      task: \core\task\password_reset_cleanup_task
+      schedule: "0 */6 * * *"
+      suspend: false
+    core-task-plagiarism:
+      task: \core\task\plagiarism_cron_task
+      schedule: "* * * * *"
+      suspend: false
+    core-task-portfolio:
+      task: \core\task\portfolio_cron_task
+      schedule: "* * * * *"
+      suspend: false
+    core-task-question-preview-cleanup:
+      task: \core\task\question_preview_cleanup_task
+      schedule: "* * * * *"
+      suspend: false
+    core-task-question-stats-cleanup:
+      task: \core\task\question_stats_cleanup_task
+      schedule: "* * * * *"
+      suspend: true
+    core-task-registration:
+      task: \core\task\registration_cron_task
+      schedule: "36 9 * * 3"
+      suspend: false
+    core-task-search-index:
+      task: \core\task\search_index_task
+      schedule: "*/30 * * * *"
+      suspend: false
+    core-task-search-optimize:
+      task: \core\task\search_optimize_task
+      schedule: "15 */12 * * *"
+      suspend: false
+    core-task-send-failed-login-notif:
+      task: \core\task\send_failed_login_notifications_task
+      schedule: "* * * * *"
+      suspend: false
+    core-task-send-new-user-passwords:
+      task: \core\task\send_new_user_passwords_task
+      schedule: "* * * * *"
+      suspend: false
+    core-task-session-cleanup:
+      task: \core\task\session_cleanup_task
+      schedule: "* * * * *"
+      suspend: false
+    core-task-stats:
+      task: \core\task\stats_cron_task
+      schedule: "0 0 * * *"
+      suspend: false
+    core-task-sync-plans-from-template-cohorts-task:
+      task: \core\task\sync_plans_from_template_cohorts_task
+      schedule: "9 * * * *"
+      suspend: false
+    core-task-tag:
+      task: \core\task\tag_cron_task
+      schedule: "37 3 * * *"
+      suspend: false
+    core-task-task-lock-cleanup:
+      task: \core\task\task_lock_cleanup_task
+      schedule: "38 0 * * *"
+      suspend: false
+    core-task-task-log-cleanup:
+      task: \core\task\task_log_cleanup_task
+      schedule: "18 21 * * *"
+      suspend: false
+    core-files-task-conversion-cleanup:
+      task: \core_files\task\conversion_cleanup_task
+      schedule: "15 2 * * *"
+      suspend: false
+    core-reportbuilder-task-send-sch:
+      task: \core_reportbuilder\task\send_schedules
+      schedule: "* * * * *"
+      suspend: false
+    repository-dropbox-task:
+      task: \repository_dropbox\task\cron_task
+      schedule: "* * * * *"
+      suspend: true
+    repository-filesystem-task:
+      task: \repository_filesystem\task\cron_task
+      schedule: "* * * * *"
+      suspend: true
+    repository-onedrive-rm-tmp-access:
+      task: \repository_onedrive\remove_temp_access_task
+      schedule: "9 6 * * 0"
+      suspend: true
+    tool-analytics-task-predict-models:
+      task: \tool_analytics\task\predict_models
+      schedule: "0 11 * * *"
+      suspend: false
+    tool-analytics-task-train-models:
+      task: \tool_analytics\task\train_models
+      schedule: "0 11 * * *"
+      suspend: false
+    tool-brickfield-tsk-bulk-proc-caches:
+      task: \tool_brickfield\task\bulk_process_caches
+      schedule: "*/5 * * * *"
+      suspend: false
+    tool-brickfield-tsk-bulk-proc-courses:
+      task: \tool_brickfield\task\bulk_process_courses
+      schedule: "*/5 * * * *"
+      suspend: false
+    tool-brickfield-tsk-checkid-val:
+      task: \tool_brickfield\task\checkid_validation
+      schedule: "05 9 * * *"
+      suspend: false
+    tool-brickfield-tsk-proc-analysis-req:
+      task: \tool_brickfield\task\process_analysis_requests
+      schedule: "*/5 * * * *"
+      suspend: false
+    tool-brickfield-tsk-updt-summarydata:
+      task: \tool_brickfield\task\update_summarydata
+      schedule: "50 0 * * *"
+      suspend: false
+    tool-cohortroles-tsk-cohort-role-sync:
+      task: \tool_cohortroles\task\cohort_role_sync
+      schedule: "33 * * * *"
+      suspend: false
+    tool-dataprivacy-tsk-del-ext-del-usr:
+      task: \tool_dataprivacy\task\delete_existing_deleted_users
+      schedule: "50 13 * * *"
+      suspend: false
+    tool-dataprivacy-tsk-del-exp-contexts:
+      task: \tool_dataprivacy\task\delete_expired_contexts
+      schedule: "0 16 * * *"
+      suspend: false
+    tool-dataprivacy-tsk-del-exp-requests:
+      task: \tool_dataprivacy\task\delete_expired_requests
+      schedule: "25 5 * * *"
+      suspend: false
+    tool-dataprivacy-tsk-exp-ret-period:
+      task: \tool_dataprivacy\task\expired_retention_period
+      schedule: "0 19 * * *"
+      suspend: false
+    tool-langimport-tsk-updt-langpacks:
+      task: \tool_langimport\task\update_langpacks_task
+      schedule: "51 4 * * *"
+      suspend: false
+    tool-messageinbound-task-cleanup:
+      task: \tool_messageinbound\task\cleanup_task
+      schedule: "55 1 * * *"
+      suspend: false
+    tool-messageinbound-task-pickup:
+      task: \tool_messageinbound\task\pickup_task
+      schedule: "* * * * *"
+      suspend: false
+    tool-monitor-task-check-subscriptions:
+      task: \tool_monitor\task\check_subscriptions
+      schedule: "9 4 * * *"
+      suspend: false
+    tool-monitor-task-clean-events:
+      task: \tool_monitor\task\clean_events
+      schedule: "* * * * *"
+      suspend: false
+    tool-recyclebin-tsk-clup-cat-bin:
+      task: \tool_recyclebin\task\cleanup_category_bin
+      schedule: "*/30 * * * *"
+      suspend: false
+    tool-recyclebin-tsk-clup-course_bin:
+      task: \tool_recyclebin\task\cleanup_course_bin
+      schedule: "*/30 * * * *"
+      suspend: false
+    workshopallocation-scheduled-task:
+      task: \workshopallocation_scheduled\task\cron_task
+      schedule: "* * * * *"
+      suspend: false
+    # schedule task for the plugin moodle-logstore_xapi
+    logstore-xapi-task-emit_task:
+      task: \logstore_xapi\task\emit_task
+      schedule: "*/1 * * * *"
+      suspend: false
+    logstore-xapi-task-failed_task:
+      task: \logstore_xapi\task\failed_task
+      schedule: "*/30 * * * *"
+      suspend: false
+    logstore-xapi-task-historical-task:
+      task: \logstore_xapi\task\historical_task
+      schedule: "0 * * * *"
+      suspend: false
+    logstore-xapi-task-sendfailednotif:
+      task: \logstore_xapi\task\sendfailednotifications_task
+      schedule: "* */2 * * *"
+      suspend: false
+    # schedule task for the plugin block_xp
+    block-xp-task-usage-report:
+      task: \block_xp\task\usage_report
+      schedule: "16 11 * * 0"
+      suspend: false
+    block-xp-task-collection-logger-purge:
+      task: \block_xp\task\collection_logger_purge
+      schedule: "47 3 * * *"
+      suspend: false

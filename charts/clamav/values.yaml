@@ -1,0 +1,41 @@
+replicaCount: 1
+image:
+  repository: clamav/clamav
+  tag: ""
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3310
+
+nameOverride: ""
+fullnameOverride: ""
+
+persistentVolume:
+  enable: false
+  size: 100Mi
+  storageClass: ""
+  accessModes:
+  - ReadWriteOnce
+
+resources: {}
+  #limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+
+# List of PVC to mount for analysis.
+scanDirs: []
+  # - pvcName: "a"
+  #   mountPath: "b"
+  
+
+freshclam:
+  schedule: "20 5 * * *"
+
+clamd:
+  config:
+    maxScanSize: 150M
+    tcpSocket: 3310

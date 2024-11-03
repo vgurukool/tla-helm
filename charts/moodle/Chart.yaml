@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 4.1.6
+description: Helm chart to deploy a Moodle
+name: moodle
+type: application
+version: 0.0.1

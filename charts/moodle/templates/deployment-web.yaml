@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moodle-web
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    app.kubernetes.io/name: apache2-php
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    app.kubernetes.io/part-of: moodle
+spec:
+  replicas: {{ .Values.web.replicaCount }}
+  selector:
+    matchLabels:
+      app: moodle
+      service: apache2
+  template:
+    metadata:
+      annotations:
+        checksum/db_config: {{ include (print $.Template.BasePath "/configmap-database.yaml") . | sha256sum }}
+        checksum/http_config: {{ include (print $.Template.BasePath "/configmap-moodle.yaml") . | sha256sum }}
+      labels:
+        app: moodle
+        service: apache2
+    spec:
+      volumes:
+      {{- include "moodle.volume_db_secret" $ | nindent 8 }}
+      {{- include "moodle.volume_data" $ | nindent 8 }}
+      {{- if $.Values.web.htaccess.config }}
+        - configMap:
+            name: moodle-htaccess
+          name: htaccess
+      {{- end }}
+      {{- if and $.Values.php $.Values.php.config }}
+        - configMap:
+            name: moodle-php
+          name: php
+      {{- end }}
+      containers:
+        - name: moodle-web
+          {{- include "moodle.image" $ | nindent 10 }}
+          args: 
+            - web
+          env:
+            {{- include "moodle.db_env" . | nindent 12 }}
+            {{- include "moodle.redis_env" . | nindent 12 }}
+            {{- include "moodle.http_env" . | nindent 12 }}
+          volumeMounts:
+            {{- include "moodle.mount_db_secret" $ | nindent 12 }}
+            - mountPath: /var/moodledata/
+              name: moodle-v-data
+            {{- if $.Values.web.htaccess.config }}
+            - name: htaccess
+              mountPath: /opt/moodle/.htaccess
+              subPath: htaccess
+              readOnly: true
+            {{- end }}
+            {{- if and $.Values.php $.Values.php.config }}
+            - name: php
+              mountPath: /usr/local/etc/php/conf.d/moodle-override.ini
+              subPath: php
+              readOnly: true
+            {{- end }}
+          livenessProbe:
+            exec:
+              command:
+                - php 
+                - admin/cli/checks.php 
+                - -f=core_designermode
+            initialDelaySeconds: 20
+            periodSeconds: 60
+            timeoutSeconds: 20

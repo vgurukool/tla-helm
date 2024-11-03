@@ -1,0 +1,39 @@
+{{- range $name, $job := $.Values.cron.default }}
+---
+{{- $cronjob_name := printf "moodle-cronjob-%s" $name | replace "_" "-" }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ trunc 52 $cronjob_name }}
+spec:
+  schedule: {{ $job.schedule | quote }}
+  suspend: {{ or $.Values.cron.suspend $job.suspend }}
+  failedJobsHistoryLimit: 2
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: moodle
+            service: cronjob
+        spec:
+          volumes:
+          {{- include "moodle.volume_db_secret" $ | nindent 10 }}
+          {{- include "moodle.volume_data" $ | nindent 10 }}
+          containers:
+          - name: moodle-cronjob-{{ $name | replace "_" "-" }}
+            {{- include "moodle.image" $ | nindent 12 }}
+            args:
+              - cron
+              - {{ $job.task | quote  }}
+            env:
+            {{- include "moodle.db_env" $ | nindent 12 }}
+            {{- include "moodle.redis_env" $ | nindent 12 }}
+            {{- include "moodle.http_env" $ | nindent 12 }}
+            volumeMounts:
+            {{- include "moodle.mount_db_secret" $ | nindent 12 }}
+            - mountPath: /var/moodledata/
+              name: moodle-v-data
+          restartPolicy: OnFailure
+{{- end }}

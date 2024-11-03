@@ -1,0 +1,38 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ template "jenny.fullname" . }}-ingress
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{- include "jenny.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{ toYaml .Values.commonLabels | nindent 4 }}
+    {{- end }}
+    app.kubernetes.io/component: django
+  annotations:
+    {{- if .Values.commonAnnotations }}
+    {{- toYaml .Values.commonAnnotations | nindent 4 }}
+    {{- end }}
+    {{- if .Values.ingress.annotations }}
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.class_name }}
+  {{- if $.Values.ingress.tls.enable }}
+  tls:
+  - hosts:
+      - {{ $.Values.ingress.host }}
+    secretName: {{ $.Values.ingress.tls.certificateSecretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "jenny.fullname" . }}-service
+                port:
+                  number: {{ .Values.nginx.port }}
+{{- end }}

@@ -1,0 +1,11 @@
+{{- if $.Values.web.htaccess.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: moodle
+  name: moodle-htaccess
+data:
+  htaccess: |
+    {{- $.Values.web.htaccess.config | nindent 4 }}
+{{- end }}

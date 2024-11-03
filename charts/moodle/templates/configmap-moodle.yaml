@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: moodle-config
+data:
+  http_host: {{ .Values.http.host | quote }}
+  http_port: {{ .Values.http.port | quote }}
+  {{- if $.Values.http.https.certificateSecretName }}
+  http_scheme: https
+  {{- else }}
+  http_scheme: http
+  {{- end }}
+  email_noreply_address: {{ .Values.moodle.no_reply_email | quote }}

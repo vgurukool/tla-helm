@@ -1,0 +1,16 @@
+{{- if .Values.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.volumes.media.claimName }}
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  accessModes:
+  {{ with .Values.persistence.accessModes }}
+    {{- toYaml . | indent 4 }}
+  {{- end }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+{{- end }}

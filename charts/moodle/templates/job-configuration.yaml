@@ -1,0 +1,60 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: moodle-configuration-release-{{ .Release.Revision }}
+spec:
+  template:
+    spec:
+      volumes:
+      {{- include "moodle.volume_db_secret" $ | nindent 6 }}
+      {{- include "moodle.volume_data" $ | nindent 6 }}
+      - name: admin-password
+        secret:
+          secretName: {{ .Values.moodle.admin.passwordSecretName }}
+          items:
+          - key: admin_password
+            path: admin_password
+      {{- if or .Values.smtp.passwordSecretName .Values.smtp.password }}
+      - name: smtp-password
+        secret:
+          secretName: {{ .Values.smtp.passwordSecretName }}
+          items:
+          - key: password
+            path: password
+      {{- end }}
+      containers:
+      - name: moodle-configure
+        {{- include "moodle.image" $ | nindent 8 }}
+        args: 
+          - "configure"
+        env:
+          {{- include "moodle.db_env" $ | nindent 10 }}
+          {{- include "moodle.redis_env" . | nindent 10 }}
+          {{- include "moodle.http_env" . | nindent 10 }}
+          {{- include "moodle.smtp_env" . | nindent 10}}
+          - name: MOODLE_ADMIN_PASSWORD_FILE
+            value: "/run/secrets/moodle/admin_password"
+          - name: MOODLE_ADMIN_EMAIL
+            value: {{ .Values.moodle.admin.email | quote }}
+          - name: MOODLE_EMAIL_NOREPLY_ADDRESS
+            value: {{ .Values.moodle.no_reply_email | quote }}
+          - name: MOODLE_TASK_ADHOC_CONCURRENCY_LIMIT
+            value: {{ $.Values.adhoc_task.replicaCount | quote }}
+          {{- if or .Values.smtp.passwordSecretName .Values.smtp.password }}
+          - name: MOODLE_SMTP_PASSWORD_FILE
+            value: "/run/secrets/moodle/smtp/password"
+          {{- end }}
+        volumeMounts:
+          {{- include "moodle.mount_db_secret" $ | nindent 10 }}
+          - name: admin-password
+            readOnly: true
+            mountPath: /run/secrets/moodle
+          - mountPath: /var/moodledata/
+            name: moodle-v-data
+          {{- if or .Values.smtp.passwordSecretName .Values.smtp.password }}
+          - name: smtp-password
+            readOnly: true
+            mountPath: /run/secrets/moodle/smtp
+          {{- end }}
+      restartPolicy: Never
+  backoffLimit: 4

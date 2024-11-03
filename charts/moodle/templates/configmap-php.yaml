@@ -1,0 +1,15 @@
+{{- if and $.Values.php $.Values.php.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: moodle-php
+data:
+  php: |
+    {{- if $.Values.php.config.upload_max_filesize }}
+    upload_max_filesize = "{{ $.Values.php.config.upload_max_filesize }}"
+    {{- end }}
+    {{- if $.Values.php.config.post_max_size }}
+    post_max_size = "{{ $.Values.php.config.post_max_size }}"
+    {{- end }}
+    {{ $.Values.php.config.raw }}
+{{- end }}

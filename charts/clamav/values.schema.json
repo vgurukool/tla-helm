@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "required": [
+    "image"
+  ],
+  "properties": {
+    "replicaCount": {
+      "type": "integer"
+    },
+    "image": {
+      "type": "object",
+      "required": [
+        "repository",
+        "pullPolicy"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "pattern": "^[a-z0-9-_/]+$"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "Never", "IfNotPresent"]
+        },
+        "tag": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.]*$"
+        }
+      }
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ClusterIP"]
+        },
+        "port": {
+          "type": "integer"
+        }
+      }
+    },
+    "nameOverride": {
+      "type": "string"
+    },
+    "fullnameOverride": {
+      "type": "string"
+    },
+    "persistentVolume": {
+      "type": "object",
+      "properties": {
+        "enable": {
+          "type": "boolean"
+        },
+        "size": {
+          "tpe": "string"
+        },
+        "storageClass": {
+          "type": "string"
+        },
+        "accessModes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ReadWriteOnce",
+              "ReadOnlyMany",
+              "ReadWriteMany",
+              "ReadWriteOncePod"
+            ]
+          }
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "limits": {
+        "type": "object",
+        "properties": {
+          "cpu": {
+            "type": "string"
+          },
+          "memory": {
+            "type": "string"
+          }
+        }
+      },
+      "requests": {
+        "type": "object",
+        "properties": {
+          "cpu": {
+            "type": "string"
+          },
+          "memory": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "scanDirs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "pvcName",
+          "mountPath"
+        ],
+        "properties": {
+          "pvcName": {
+            "type": "string"
+          },
+          "mountPath": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "freshclam": {
+      "type": "object",
+      "properties": {
+        "schedule": {
+          "type": "string"
+        }
+      }
+    },
+    "clamd": {
+      "type": "object",
+      "properties": {
+        "config": {
+          "type": "object",
+          "properties": {
+            "maxScanSize": {
+              "type": "string"
+            },
+            "tcpSocket": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    }
+  }
+}

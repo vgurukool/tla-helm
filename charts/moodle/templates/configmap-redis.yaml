@@ -1,0 +1,9 @@
+{{- if $.Values.redis }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: moodle-redis
+data:
+  host: {{ .Values.redis.host | quote }}
+  port: {{ .Values.redis.port | quote }}
+{{- end }}

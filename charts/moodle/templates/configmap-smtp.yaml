@@ -1,0 +1,12 @@
+{{- if $.Values.smtp.host }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: moodle-smtp
+data:
+  host: {{ .Values.smtp.host | quote }}
+  port: {{ .Values.smtp.port | quote }}
+  security: {{ .Values.smtp.security | quote }}
+  user: {{ .Values.smtp.user | quote }}
+  auth_mode: {{ .Values.smtp.auth_mode | quote }}
+{{- end }}

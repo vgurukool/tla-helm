@@ -1,0 +1,36 @@
+{{- if .Values.persistentVolume.enable }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "clamav.fullname" . }}-freshclam
+spec:
+  schedule: {{ .Values.freshclam.schedule | quote}}
+  failedJobsHistoryLimit: 2
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: {{ include "clamav.pvcname" . }}
+          containers:
+            - name: {{ include "clamav.fullname" . }}-freshclam
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: [ "/init-unprivileged" ]
+              args:
+                - freshclam
+                - --foreground 
+                - --stdout
+              env:
+                - name: CLAMAV_NO_FRESHCLAMD
+                  value: "true"
+                - name: CLAMAV_NO_MILTERD
+                  value: "true"
+              volumeMounts:
+                - name: data
+                  mountPath: /var/lib/clamav
+          restartPolicy: OnFailure
+{{- end }}

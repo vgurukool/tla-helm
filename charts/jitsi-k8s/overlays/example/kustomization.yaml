@@ -1,0 +1,43 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# Merge the base config map with values specified in the jitsi.env file
+configMapGenerator:
+  - name: jitsi-common
+    behavior: merge
+    envs:
+      - ./jitsi-common.env
+
+images:
+  - name: fundocker/jibri-pulseaudio
+    newTag: main
+  - name: jitsi/jicofo
+    newTag: stable-7001
+  - name: jitsi/web
+    newTag: stable-7001
+  - name: jitsi/jvb
+    newTag: stable-7001
+  - name: jitsi/prosody
+    newTag: stable-7001
+
+generators:
+  - ./secret-generator.yaml
+
+replacements:
+  # Replace the domain name configured in jitsi-meet-front Ingress with
+  # the value XMPP_DOMAIN defined in the jitsi-common.env file
+  - source:
+      name: jitsi-common
+      kind: ConfigMap
+      version: v1
+      fieldPath: data.XMPP_DOMAIN
+    targets:
+      - select:
+          kind: Ingress
+          name: jitsi-meet-front
+        fieldPaths:
+          - spec.rules.0.host
+          - spec.tls.0.hosts.0

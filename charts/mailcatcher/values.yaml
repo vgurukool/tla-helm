@@ -1,0 +1,15 @@
+image:
+  repository: sj26/mailcatcher
+  tag: ""
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations: {}
+  tls:
+    enable: false
+    certificateSecretName: ""

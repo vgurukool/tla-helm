@@ -1,0 +1,85 @@
+# Jenny Chart default values
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: 49705lm8.c1.gra9.container-registry.ovh.net/jenny/jenny
+  pullPolicy: Always
+  tag: "production-latest"
+
+replicaCount: 1
+
+imagePullSecrets: []
+
+podAnnotations: {}
+
+service:
+  port: 8080
+  type: NodePort
+  nodePort:
+    http: 30080
+
+ingress:
+  enabled: true
+  class_name: "nginx"
+  annotations: {}
+  tls:
+    enable: false
+    certificateSecretName: jenny-certificate
+
+persistence:
+  enabled: true
+  storageClass: "local-path"
+  accessModes:
+    - ReadWriteOnce
+  size: 2Gi
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: deployment
+                operator: In
+                values:
+                  - "jenny-app"
+          topologyKey: kubernetes.io/hostname
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+volumes:
+  media:
+    name: "jenny-media"
+    claimName: "jenny-media-pvc"
+    mountPath: "/app/media"
+
+django:
+  fullname: jenny
+  port: 8080
+  settings: "jenny.settings"
+  configuration: "Base"
+  allowed_hosts: "*"
+  db:
+    name: "jenny"
+    user: "jenny"
+    host: "192.168.1.41"
+    port: "5432"
+  jobs:
+    - name: dbmigrate
+      command: ["python", "manage.py", "migrate", "--no-input"]
+  resources: {}
+
+nginx:
+  port: 8000

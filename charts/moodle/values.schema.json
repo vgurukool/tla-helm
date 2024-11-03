@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "required": [
+    "image"
+  ],
+  "properties": {
+    "image": {
+      "type": "object",
+      "required": [
+        "repository",
+        "pullPolicy"
+      ],
+      "properties": {
+        "registry":  {
+          "type": "string",
+          "pattern": "^[a-z0-9-_.]+$"
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[a-z0-9-_/]+$"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "Never", "IfNotPresent"]
+        },
+        "tag": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.]+$"
+        }
+      }
+    },
+    "web": {
+      "type": "object",
+      "properties": {
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "adhoc_task": {
+      "type": "object",
+      "properties": {
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ttl":{
+          "type": "integer",
+          "minimum": 0,
+          "description": "Time in minutes before restart the adhoc task proccess."
+        }
+      }
+    },
+    "database": {
+      "type": "object",
+      "required": [
+        "host",
+        "port",
+        "name",
+        "user"
+      ],
+      "properties": {
+        "host": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "name": {
+          "type": "string",
+          "description": "Database name to use"
+        },
+        "user": {
+          "type": "string",
+          "description": "Database user to use"
+        },
+        "password": {
+          "type": "string"
+        },
+        "passwordSecretName": {
+          "type": "string"
+        }
+      }
+    },
+    "redis": {
+      "type": "object",
+      "required": [
+        "host",
+        "port"
+      ],
+      "properties": {
+        "host": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      }
+    }
+  }
+}
