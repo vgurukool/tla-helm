@@ -147,7 +147,8 @@ lrs:
     ignoreHealthChecks: true
 
 # Secret containing authentication for Ralph
-lrsAuthSecret: "ralph-auth-secret"
+# lrsAuthSecret: "ralph-auth-secret"
+lrsAuthSecret: "ralph-env-secret"
 
 # ConfigMap containing extra environment variables to configure Ralph
 lrsEnvConfigMap: "ralph-env-cm"
