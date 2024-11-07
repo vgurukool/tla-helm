@@ -136,9 +136,9 @@ lrs:
       cacheMaxSize: 100
       cacheTTL: 3600
     oidc:
-      enabled: false
+      enabled: true
       audience: "http://localhost:8100"
-      issuerURI: "http://learning-analytics-playground_keycloak_1:8080/auth/realms/fun-mooc"
+      issuerURI: "http://localhost:8090/admin/realms/cnoe"
   sentry:
     enabled: false
     dsn: "https://fake@key.ingest.sentry.io/1234567"
