@@ -53,7 +53,7 @@ data:
   RALPH_RUNSERVER_AUTH_BACKENDS: oidc
   RALPH_RUNSERVER_AUTH_OIDC_AUDIENCE: http://localhost:8100
   # RALPH_RUNSERVER_AUTH_OIDC_ISSUER_URI: http://learning-analytics-playground_keycloak_1:8080/auth/realms/fun-mooc
-  RALPH_RUNSERVER_AUTH_OIDC_ISSUER_URI: localhost:8090/admin/realms/cnoe
+  RALPH_RUNSERVER_AUTH_OIDC_ISSUER_URI: http://localhost:8090/admin/realms/cnoe
   RALPH_RUNSERVER_BACKEND: es
   RALPH_RUNSERVER_HOST: 0.0.0.0
   RALPH_RUNSERVER_MAX_SEARCH_HITS_COUNT: "100"
