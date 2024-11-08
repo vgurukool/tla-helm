@@ -1,0 +1,6 @@
+dependencies:
+- name: elasticsearch
+  repository: file://../../util/elasticsearch
+  version: 21.3.20
+digest: sha256:7d364d23cc49fa1b8d7e1c3135ebd2d476fa446a0591e1147b189f658ecdd348
+generated: "2024-11-08T07:44:19.442816-06:00"

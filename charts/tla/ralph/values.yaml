@@ -136,7 +136,7 @@ lrs:
       cacheMaxSize: 100
       cacheTTL: 3600
     oidc:
-      enabled: true
+      enabled: false
       audience: "http://localhost:8100"
       issuerURI: "http://localhost:8090/admin/realms/cnoe"
   sentry:
