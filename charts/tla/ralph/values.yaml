@@ -156,17 +156,17 @@ lrsEnvConfigMap: "ralph-env-cm"
 # Secret containing environment variables to configure Ralph
 lrsEnvSecret: "ralph-env-secret"
 
-# database:
-#   tls:
-#     enabled: false
-#     certificatesSecret: ""
-#     certificatesMountPath: "/usr/local/share/ca-certificates/"
-
 database:
   tls:
-    enabled: true
-    certificatesSecret: "data-lake-es-http-certs-public"
+    enabled: false
+    certificatesSecret: ""
     certificatesMountPath: "/usr/local/share/ca-certificates/"
+
+# database:
+#   tls:
+#     enabled: true
+#     certificatesSecret: "data-lake-es-http-certs-public"
+#     certificatesMountPath: "/usr/local/share/ca-certificates/"
 
 loggingConfigConfigMap: ralph-logging-config
 loggingConfig:
