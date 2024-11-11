@@ -40,18 +40,18 @@ spec:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /__heartbeat__
-              port: http
-            initialDelaySeconds: 15
-            periodSeconds: 30
-          readinessProbe:
-            httpGet:
-              path: /__lbheartbeat__
-              port: http
-            initialDelaySeconds: 5
-            periodSeconds: 5
+          # livenessProbe:
+          #   httpGet:
+          #     path: /__heartbeat__
+          #     port: http
+          #   initialDelaySeconds: 15
+          #   periodSeconds: 30
+          # readinessProbe:
+          #   httpGet:
+          #     path: /__lbheartbeat__
+          #     port: http
+          #   initialDelaySeconds: 5
+          #   periodSeconds: 5
           envFrom:
             - configMapRef:
                 name: {{ .Values.lrsConfigMap | quote }}
