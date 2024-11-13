@@ -125,8 +125,8 @@ lrsConfigMap: "ralph-lrs-config"
 lrs:
   appDir: "/app/.ralph"
   ## trying fs to check if the issue is beacuseom es connectivity
-  # backend: "es"
-  backend: "fs"
+  backend: "es"
+  # backend: "fs"
   maxSearchHitsCount: 100
   converterNamespace: ""
   auth:
