@@ -124,7 +124,9 @@ affinity:
 lrsConfigMap: "ralph-lrs-config"
 lrs:
   appDir: "/app/.ralph"
-  backend: "es"
+  ## trying fs to check if the issue is beacuseom es connectivity
+  # backend: "es"
+  backend: "fs"
   maxSearchHitsCount: 100
   converterNamespace: ""
   auth:
