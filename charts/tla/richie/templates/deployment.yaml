@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: Deployment
+metadata:
+  labels:
+    app: richie
+    service: richie
+    version: {{ .Values.richie.app.image_tag }}
+    .Release.Name: "{{ .Release.Name }}"
+  name: "richie-app-{{ .Release.Name }}"
+  namespace: "{{ .Values.namespace }}"
+spec:
+  replicas: {{ .Values.richie.app.replicas }}
+  selector:
+    matchLabels:
+      app: richie
+      service: richie
+      version: {{ .Values.richie.app.image_tag }}
+      deployment: "richie-app-{{ .Release.Name }}"
+      .Release.Name: "{{ .Release.Name }}"
+  template:
+    metadata:
+      labels:
+        app: richie
+        service: richie
+        version: {{ .Values.richie.app.image_tag }}
+        deployment: "richie-app-{{ .Release.Name }}"
+        .Release.Name: "{{ .Release.Name }}"
+    spec:
+      # Prefer running pods on different nodes for redundancy
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: deployment
+                      operator: In
+                      values:
+                        - "richie-app-{{ .Release.Name }}"
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: richie
+          image: "{{ .Values.richie.app.image_name }}:{{ .Values.richie.app.image_tag }}"
+          imagePullPolicy: Always
+          livenessProbe:
+            httpGet:
+              path: /__heartbeat__
+              port: {{ .Values.richie.app.django_port }}
+              httpHeaders:
+                - name: Host
+                  value: {{ .Values.richie.app.host }}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /__lbheartbeat__
+              port: {{ .Values.richie.app.django_port }}
+              httpHeaders:
+                - name: Host
+                  value: {{ .Values.richie.app.host }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          env:
+            - name: DJANGO_SETTINGS_MODULE
+              value: {{ .Values.richie.app.django_settings_module }}
+            - name: DJANGO_CONFIGURATION
+              value: {{ .Values.richie.app.django_configuration }}
+            - name: DB_ENGINE
+              value: {{ .Values.richie.database.engine }}
+            - name: DB_NAME
+              value: {{ .Values.richie.database.name }}
+            - name: DB_HOST
+              value: richie-{{ .Values.richie.database.host }}-{{ .Release.Name }}
+            - name: DB_PORT
+              value: {{ .Values.richie.database.port }}
+            - name: RICHIE_ES_HOST
+              value: "richie-{{ .Values.richie.elasticsearch.host }}-{{ .Release.Name }}"
+          envFrom:
+            - secretRef:
+                name: "{{ .Values.richie.app.secret_name }}"
+            - configMapRef:
+                name: "richie-app-dotenv-{{ .Release.Name }}"
+          resources: {{ .Values.richie.app.resources }}
+          volumeMounts:
+            - name: richie-v-media
+              mountPath: /data/media
+      volumes:
+        - name: richie-v-media
+          persistentVolumeClaim:
+            claimName: "{{ .Values.richie.app.pvc_media_name }}"
+      securityContext:
+        runAsUser: {{ .Values.container_uid }}
+        runAsGroup: {{ .Values.container_gid }}

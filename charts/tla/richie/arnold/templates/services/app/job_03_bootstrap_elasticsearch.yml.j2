@@ -1,0 +1,69 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "richie-app-bootstrap-elasticsearch-{{ job_stamp }}"
+  namespace: "{{ namespace_name }}"
+  labels:
+    app: richie
+    service: richie
+    version: "{{ richie_image_tag }}"
+    deployment_stamp: "{{ deployment_stamp }}"
+    job_stamp: "{{ job_stamp }}"
+spec:
+  template:
+    metadata:
+      name: richie-app-bootstrap-elasticsearch-{{ job_stamp }}
+      labels:
+        app: richie
+        service: richie
+        version: "{{ richie_image_tag }}"
+        deployment_stamp: "{{ deployment_stamp }}"
+        job_stamp: "{{ job_stamp }}"
+    spec:
+{% set image_pull_secret_name = richie_image_pull_secret_name | default(none) or default_image_pull_secret_name %}
+{% if image_pull_secret_name is not none %}
+      imagePullSecrets:
+        - name: "{{ image_pull_secret_name }}"
+{% endif %}
+      restartPolicy: Never
+      containers:
+        - name: richie-bootstrap-elasticsearch
+          image: "{{ richie_image_name }}:{{ richie_image_tag }}"
+          imagePullPolicy: Always
+          env:
+            - name: DJANGO_SETTINGS_MODULE
+              value: "{{ richie_django_settings_module }}"
+            - name: DJANGO_CONFIGURATION
+              value: "{{ richie_django_configuration }}"
+            - name: DB_ENGINE
+              value: "{{ richie_database_engine }}"
+            - name: DB_NAME
+              value: "{{ richie_database_name }}"
+            - name: DB_HOST
+              value: "richie-{{ richie_database_host }}-{{ deployment_stamp }}"
+            - name: DB_PORT
+              value: "{{ richie_database_port }}"
+            - name: RICHIE_ES_HOST
+              value: "richie-{{ richie_elasticsearch_host }}-{{ deployment_stamp }}"
+          envFrom:
+            - secretRef:
+                name: "{{ richie_secret_name }}"
+            - configMapRef:
+                name: "richie-app-dotenv-{{ deployment_stamp }}"
+          command:
+            - "bash"
+            - "-c"
+            - python manage.py bootstrap_elasticsearch
+          resources: {{ richie_app_job_bootstrap_elasticsearch_resources }}
+{% if richie_should_activate_media_volume %}
+          volumeMounts:
+            - name: richie-v-media
+              mountPath: /data/media
+      volumes:
+        - name: richie-v-media
+          persistentVolumeClaim:
+            claimName: "{{ richie_pvc_media_name }}"
+{% endif %}
+      securityContext:
+        runAsUser: {{ container_uid }}
+        runAsGroup: {{ container_gid }}

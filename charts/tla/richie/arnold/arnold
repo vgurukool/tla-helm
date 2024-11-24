@@ -1,0 +1,1299 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+# Docker
+declare -r ARNOLD_IMAGE_NAME="${ARNOLD_IMAGE_NAME:-fundocker/arnold}"
+declare -r ARNOLD_IMAGE_TAG="${ARNOLD_IMAGE_TAG:-5.24.0}"
+declare -r ARNOLD_IMAGE="${ARNOLD_IMAGE:-${ARNOLD_IMAGE_NAME}:${ARNOLD_IMAGE_TAG}}"
+declare -r ARNOLD_PROJECT_PATH="${PWD}"
+declare -r ARNOLD_TRAY_FILE="arnold.yml"
+declare -r DOCKER_USER="${DOCKER_USER:-$(id -u)}"
+
+# Arnold release info
+declare LATEST_RELEASE
+declare LATEST_VERSION
+
+# Script infos
+declare SCRIPT_NAME
+SCRIPT_NAME=$(basename "$0")
+declare SCRIPT_PATH
+SCRIPT_PATH="$(dirname "$(readlink -f "$0")")/${SCRIPT_NAME}"
+
+# The team file lists emails corresponding to public gpg keys that will be used
+# to encrypt ansible vault password using gpg.
+declare -r TEAM_FILE="${ARNOLD_PROJECT_PATH}/.team"
+
+# Set ansible vault password default to the corresponding environment variable
+# value (insecure mode, while not using gpg or --ask-vault-pass argument in
+# ansible-playbook command calls).
+declare ANSIBLE_VAULT_PASSWORD="${ANSIBLE_VAULT_PASSWORD}"
+
+# Terminal colors
+declare -r COLOR_BLUE='\033[0;36m'
+declare -r COLOR_DEFAULT='\033[0;39m'
+declare -r COLOR_GREEN='\033[0;32m'
+declare -r COLOR_ORANGE='\033[0;33m'
+declare -r COLOR_RED='\033[0;31m'
+declare -r COLOR_RESET='\033[0m'
+
+# Log levels
+declare -i LOG_LEVEL_CRITICAL=50
+declare -i LOG_LEVEL_ERROR=40
+declare -i LOG_LEVEL_WARNING=30
+declare -i LOG_LEVEL_SUCCESS=25
+declare -i LOG_LEVEL_INFO=20
+declare -i LOG_LEVEL_DEBUG=10
+declare -i LOG_LEVEL_NOTSET=0
+declare -i DEFAULT_LOG_LEVEL=${LOG_LEVEL_INFO}
+declare -i LOG_LEVEL=${DEFAULT_LOG_LEVEL}
+declare -A LOG_LEVELS=(
+  ["critical"]=${LOG_LEVEL_CRITICAL}
+  ["error"]=${LOG_LEVEL_ERROR}
+  ["warning"]=${LOG_LEVEL_WARNING}
+  ["success"]=${LOG_LEVEL_SUCCESS}
+  ["info"]=${LOG_LEVEL_INFO}
+  ["debug"]=${LOG_LEVEL_DEBUG}
+  ["notset"]=${LOG_LEVEL_NOTSET}
+)
+declare -A LOG_LEVEL_COLORS=(
+  ["critical"]=${COLOR_RED}
+  ["error"]=${COLOR_RED}
+  ["warning"]=${COLOR_ORANGE}
+  ["success"]=${COLOR_GREEN}
+  ["info"]=${COLOR_BLUE}
+  ["debug"]=${COLOR_DEFAULT}
+  ["notset"]=${COLOR_DEFAULT}
+)
+
+# Directories
+declare -r RELATIVE_COMMON_DIR="group_vars/common"
+declare -r RELATIVE_CUSTOMER_DIR="group_vars/customer"
+declare -r RELATIVE_ENV_TYPE_DIR="group_vars/env_type"
+declare -r RELATIVE_COMMUNITY_APPS_DIR="community_apps"
+declare -r RELATIVE_DEPENDENCIES_FILE="dependencies.yml"
+declare -r RELATIVE_REGISTRY_FILE="registry.yml"
+declare -r COMMON_DIR="${ARNOLD_PROJECT_PATH}/${RELATIVE_COMMON_DIR}"
+declare -r CUSTOMER_DIR="${ARNOLD_PROJECT_PATH}/${RELATIVE_CUSTOMER_DIR}"
+declare -r ENV_TYPE_DIR="${ARNOLD_PROJECT_PATH}/${RELATIVE_ENV_TYPE_DIR}"
+declare -r COMMUNITY_APPS_DIR="${ARNOLD_PROJECT_PATH}/${RELATIVE_COMMUNITY_APPS_DIR}"
+declare -r DEPENDENCIES_FILE="${ARNOLD_PROJECT_PATH}/${RELATIVE_DEPENDENCIES_FILE}"
+declare -r REGISTRY_FILE="${ARNOLD_PROJECT_PATH}/${RELATIVE_REGISTRY_FILE}"
+
+# Files
+declare -r VAULT_PASSWORD_FILE_NAME="password.gpg"
+
+# Dependencies
+declare -r JQ="docker run --rm -i fundocker/jq:1.6"
+declare -r KUBECTL="kubectl"
+declare -r YQ="docker run --rm -i -v ${ARNOLD_PROJECT_PATH}:/workdir mikefarah/yq:3.4.1 yq"
+
+# Hosts
+
+# K8S_DOMAIN is used in development and the CI to set the project's
+# 'domain_name' to "${K8S_DOMAIN}.nip.io". Otherwhise it should be set to
+# target your K8S API.
+declare K8S_DOMAIN="${K8S_DOMAIN:-$(hostname -I | awk '{print $1}')}"
+export K8S_DOMAIN
+
+# K8S authentication :
+# To authenticate against the K8S cluster, there are 2 options:
+#
+# 1) Provide the following environment variables to this script:
+#     - K8S_AUTH_API_KEY: a service account token
+#     - K8S_AUTH_HOST: the k8s api host (e.g. https://192.168.1.1:6550)
+#
+# 2) We can discover the service account authentication information based on
+#    your local kubectl configuration. You just have to provide the following
+#    environment variables:
+#
+#    - K8S_CONTEXT: the context name to use in your default kubectl configuration file
+#    - K8S_SERVICE_ACCOUNT: the service account to use for authentication
+#    - K8S_SERVICE_ACCOUNT_NAMESPACE: the namespace in which the service account is created
+#
+#    If you used `make cluster` to setup your local development environment,
+#    it will work with the default values.
+#
+#    If you work on a specific k8s cluster, you need to create a serviceaccount with
+#    enough permissions to be able to run the Ansible playbook tasks, and adjust these
+#    variables to match your configuration.
+#
+#    By default, arnold will use the ca.crt stored in the Service Account secret to
+#    check the k8s API certificate. You might want to disable this if your k8s API
+#    certificate is signed by a public trusted CA, by setting the environment variable
+#    USE_K8S_SERVICE_ACCOUNT_CA_CERT to 0.
+
+declare K3D_CLUSTER_NAME=${K3D_CLUSTER_NAME:-arnold}
+declare K8S_CONTEXT="${K8S_CONTEXT:-"k3d-${K3D_CLUSTER_NAME}"}"
+declare K8S_SERVICE_ACCOUNT="${K8S_SERVICE_ACCOUNT:-"arnold"}"
+declare K8S_SERVICE_ACCOUNT_NAMESPACE="${K8S_SERVICE_ACCOUNT_NAMESPACE:-"default"}"
+declare -i USE_K8S_SERVICE_ACCOUNT_CA_CERT=${USE_K8S_SERVICE_ACCOUNT_CA_CERT:-1}
+
+# Flags
+declare -i DEV_MODE=0
+declare -i USE_GPG=${ARNOLD_USE_GPG:-0}
+
+# Tray development
+declare ARNOLD_TRAY_PATH
+declare ARNOLD_TRAY_NAME
+
+# Extras
+declare -a ARNOLD_EXTRA_VOLUMES
+
+# Basic logging (with colors 🎉)
+function log() {
+
+    declare -i level
+    declare level_name="${1}"
+    declare message="${2}"
+    declare color=${LOG_LEVEL_COLORS["notset"]}
+
+    level=${LOG_LEVELS[${level_name}]}
+    color=${LOG_LEVEL_COLORS[${level_name}]}
+
+    if [[ ${level} -ge ${LOG_LEVEL} ]]; then
+      echo -e "${color}$(printf "%-8s" "${level_name}" | tr "[:lower:]" "[:upper:]") ${message}${COLOR_RESET}" 1>&2
+    fi
+}
+
+
+# usage: display usage with the appropriate exit code
+#
+# usage: usage [EXIT_CODE]
+#
+#   EXIT_CODE: program exit code (default: 0)
+function usage(){
+
+    declare -i exit_code="${1:-0}"
+
+    echo "Usage: arnold [OPTIONS] COMMAND
+
+OPTIONS:
+
+  -a, --application
+         set target application (e.g. edxapp)
+  -c, --customer
+         set active customer (e.g. eugene)
+  -d, --dev
+         application development mode
+  -D, --debug
+         debug mode
+  -e, --environment
+         set active environment (e.g. staging)
+  -g, --gpg
+         use gpg to safely store ansible vaults passwords (recommanded)
+  -h, --help
+         print this message
+  -k, --k8s-domain
+         set k8s domain (server)
+  -n, --dry-run
+         dry-run mode (display commands only)
+  -v, --extra-volume
+         mount extra volume in the container (follows docker volumes syntax,
+         e.g. /local/path:/target/path)
+
+COMMANDS:
+
+> Prepare current namespace:
+
+  create_app_vaults create a vault file for each application
+  create_db_vault   create or update a vault file with databases credentials
+  htpasswd          initialize a namespace's htpassword files
+  info              display current configuration
+  install_trays     install project trays (deployable community apps)
+  redirect          create (or update) HTTP redirections
+  reset_vault_pw    reset vault password for a namespace (and update all vaults)
+  run               run any command in the container
+  setup             create arnold-required folders and files
+  vault             wrapper around Ansible's vault command
+  vaults            perform global actions for all vaults of the current namespace
+  vault_pw          set a password to encrypt vault files with Ansible Vault
+
+> Deploy current namespace:
+
+  acme                  create the acme issuer for the namespace
+  bootstrap             shortcut for the init + deploy commands
+  create                create a k8s object
+  create_namespace      create namespace
+  create_volumes        create volumes for every application
+  deploy                deploy all objects defined in all applications
+  ingresses             create ingresses and redirections (if any)
+  init                  initialize a namespace with all its volumes and configmaps
+  pause [SELECTOR]      scale down selected deployments of the namespace (defaults to: all)
+  resume [SELECTOR]     restore selected deployments of the namespace (defaults to: all)
+  rollback              switch back the previous stack as current
+  secrets               update namespace secrets
+  switch                perform blue/green switch
+
+> Manage current namespace:
+
+  clean             remove orphan objects (for blue-green apps)
+  delete_previous   remove the previous stack (for blue-green apps)
+
+> Project management:
+
+  upgrade           upgrade arnold to the latest release
+"
+
+    # shellcheck disable=SC2086
+    exit ${exit_code}
+}
+
+
+# ---- Utils library ----
+
+# Get the log level name given its numerical value
+function _get_log_level_name() {
+  for name in in "${!LOG_LEVELS[@]}"; do
+    if [[ ${LOG_LEVELS[${name}]} -eq ${LOG_LEVEL} ]]; then
+      echo "${name}"
+      break
+    fi
+  done
+}
+
+# Get the latest Arnold release by querying Github's API
+function _get_latest_release() {
+  if ! curl \
+      -s \
+      -H "Accept: application/vnd.github.v3+json" \
+      "https://api.github.com/repos/openfun/arnold/releases?per_page=1" ; then
+    log debug "Cannot get latest release from GitHub.com"
+  fi
+}
+
+# Get version from the latest release
+function _get_latest_version() {
+
+  if [[ -z ${LATEST_RELEASE} ]]; then
+    LATEST_RELEASE=$(_get_latest_release)
+
+    # GitHub is probably down or we are offline
+    if [[ -z ${LATEST_RELEASE} ]]; then
+      log debug "Cannot get latest version"
+      return
+    fi
+  fi
+
+  echo "${LATEST_RELEASE}" | \
+    ${JQ} .[0].tag_name | \
+    sed 's/v//' | \
+    sed 's/"//g'
+}
+
+# Check if a new Arnold release is available
+function _check_new_release_availability() {
+
+  if [[ -z ${LATEST_VERSION} ]]; then
+    log info "We cannot check new release availability for now (working offline?)"
+    return 0
+  fi
+
+  log debug "Latest version: ${LATEST_VERSION}"
+
+  if [[ "${ARNOLD_IMAGE_TAG}" != "${LATEST_VERSION}" ]] && echo -e "${ARNOLD_IMAGE_TAG}\\n${LATEST_VERSION}" | sort -CV ; then
+    log warning "A new Arnold release is available: ${LATEST_VERSION}"
+    return 1
+  else
+    log info "You are using the latest Arnold release 🎉"
+  fi
+  return 0
+}
+
+# Download latest release to a temporary file and return its path
+function _download_latest_release() {
+
+  declare release_url
+  declare upgraded_bin
+
+  if [[ -z ${LATEST_RELEASE} ]]; then
+    LATEST_RELEASE=$(_get_latest_release)
+  fi
+
+  if [[ -z ${LATEST_VERSION} ]]; then
+    LATEST_VERSION=$(_get_latest_version)
+  fi
+
+  release_url=$(
+    echo "${LATEST_RELEASE}" | \
+    ${JQ} .[0].tarball_url | \
+    sed 's/"//g'
+  )
+  upgraded_bin=$(mktemp -q)
+
+  log info "Downloading latest release from ${release_url}"
+  curl -qL "${release_url}" | \
+    tar xzfO - --wildcards --no-anchored '*/bin/arnold' \
+    > "${upgraded_bin}"
+
+  # Check downloaded script
+  if ! head -n 1 "${upgraded_bin}" | grep bash > /dev/null ; then
+    log error "Downloaded file is corrupted"
+    exit 22
+  fi
+
+  log debug "Arnold upgrade temporary download path: ${upgraded_bin}"
+  echo "${upgraded_bin}"
+}
+
+# _set_k8s_env: set k8s's environment
+#
+# Use this function to configure the k8s environment whenever your docker
+# run commands require access to an k8s server.
+function _set_k8s_env() {
+
+    _ensure_k8s_namespace_is_set
+
+    # Allow overriding config per customer
+    customer_vars="$(dirname "${BASH_SOURCE[0]}")/../${CUSTOMER_DIR}/${ARNOLD_CUSTOMER}/vars.inc.sh"
+    if [ -e "${customer_vars}" ]; then
+        # shellcheck source=/dev/null
+        source "${customer_vars}"
+    fi
+
+    # If an authentication token is provided, check that the K8S_AUTH_HOST is also provided.
+    if [[ -n "${K8S_AUTH_API_KEY}" && -z "${K8S_AUTH_HOST}" ]] ; then
+      log error "You should provide K8S_AUTH_API_KEY and K8S_AUTH_HOST"
+      exit 1
+    fi
+
+    # If no authentication token is provided, we'll get it from the K8S_SERVICE_ACCOUNT
+    # service account in the K8S_CONTEXT configuration context.
+    if [[ -z "${K8S_AUTH_API_KEY}" ]] ; then
+      if [[ -z "${K8S_CONTEXT}" ]]; then
+        log error "You should provide a K8S_CONTEXT or K8S_AUTH_API_KEY + K8S_AUTH_HOST."
+        exit 1
+      fi
+
+      # Ensure that the context K8S_CONTEXT exists
+      if ! ${KUBECTL} config get-contexts -o=name | grep -q "^${K8S_CONTEXT}\$" ; then
+        log error "Unable to find context ${K8S_CONTEXT} in kubernetes configuration."
+        exit 1
+      fi
+
+      # Get K8S_AUTH_HOST from configuration
+      K8S_AUTH_HOST=$(${KUBECTL} --namespace "${K8S_SERVICE_ACCOUNT_NAMESPACE}" config view -o jsonpath="{.clusters[?(@.name==\"$K8S_CONTEXT\")].cluster.server}")
+      # Sometimes, the server declared in kubeconfig is a loopback IP address
+      # (e.g. 127.0.0.1 or 0.0.0.0). This is the case when the configuration
+      # is created by k3d, for example. We cannot use this address from inside
+      # a docker container to reach K8S API, so we have to fix it to point to
+      # K8S_DOMAIN instead.
+      K8S_AUTH_HOST=$(echo "${K8S_AUTH_HOST}" | sed -r 's/localhost|0(\.0){3}|127(\.[0-9]+){3}/'"${K8S_DOMAIN}"'/')
+
+      if [[ -z "${K8S_AUTH_HOST}" ]] ; then
+        log error "Unable to find server address for cluster ${K8S_CONTEXT}"
+        exit 1
+      fi
+
+      # Switch to the context K8S_CONTEXT
+      ${KUBECTL} config use-context "${K8S_CONTEXT}"
+
+      # Get authentication token from the K8S_SERVICE_ACCOUNT service account
+      K8S_AUTH_API_KEY=$(${KUBECTL} --namespace "${K8S_SERVICE_ACCOUNT_NAMESPACE}" get secrets -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\\.io/service-account\\.name']=='${K8S_SERVICE_ACCOUNT}')].data.token}"|base64 --decode)
+
+      # Get certificate authority data
+      if [[ ${USE_K8S_SERVICE_ACCOUNT_CA_CERT} -eq 1 ]]; then
+        K8S_AUTH_SSL_CA_CERT_B64=$(${KUBECTL} --namespace "${K8S_SERVICE_ACCOUNT_NAMESPACE}" get secrets -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\\.io/service-account\\.name']=='${K8S_SERVICE_ACCOUNT}')].data.ca\\.crt}")
+        if [[ -n "${K8S_AUTH_SSL_CA_CERT_B64}" ]] ; then
+          export K8S_AUTH_SSL_CA_CERT_B64
+        fi
+      fi
+
+      if [[ -z "${K8S_AUTH_API_KEY}" ]] ; then
+        log error "
+Unable to get authentication token for the ${K8S_SERVICE_ACCOUNT}
+service account in context ${K8S_CONTEXT}. Do you have a ${K8S_SERVICE_ACCOUNT}
+service account defined in the default namespace? If not, you might want to
+check your local cluster configuration or authenticate using
+K8S_AUTH_API_KEY and K8S_AUTH_HOST.
+"
+        exit 1
+      fi
+
+    fi
+
+    set -e
+
+    # Test authentication with K8S_AUTH_HOST and K8S_AUTH_API_KEY
+    if ! curl -sf -X GET "${K8S_AUTH_HOST}/api" --header "Authorization: Bearer ${K8S_AUTH_API_KEY}" --insecure > /dev/null ; then
+      log error "Unable to authenticate to ${K8S_AUTH_HOST} with the K8S_AUTH_API_KEY".
+      exit 1
+    fi
+
+    # Ansible's k8s module requires the following two environment variables to be defined
+    export K8S_AUTH_API_KEY
+    export K8S_AUTH_HOST
+}
+
+# _ensure_k8s_namespace_is_set: ensure that k8s's target namespace has
+# been set via the ARNOLD_CUSTOMER & ARNOLD_ENVIRONMENT environment variables
+function _ensure_k8s_namespace_is_set() {
+
+    if ! env | grep ARNOLD_CUSTOMER > /dev/null || ! env | grep ARNOLD_ENVIRONMENT > /dev/null ; then
+        log error "You need to set both the ARNOLD_CUSTOMER and ARNOLD_ENVIRONMENT environment variables (see usage)."
+        exit 1
+    fi
+}
+
+# _get_namespace: get the namespace given ARNOLD_CUSTOMER & ARNOLD_ENVIRONMENT
+# environment variables definitions
+function _get_namespace() {
+
+    echo "${ARNOLD_ENVIRONMENT}-${ARNOLD_CUSTOMER}"
+}
+
+# _get_vault_password_file: get vault password file path
+#
+# This function computes the path of a gpg encrypted password file for a
+# particular customer in a particular environment.
+function _get_vault_password_file() {
+
+    echo "$(_get_secrets_directory)/${VAULT_PASSWORD_FILE_NAME}"
+}
+
+# _get_secrets_directory: get secrets directory for a project
+#
+# This function computes the path to the secrets directory for a
+# particular customer in a particular environment.
+function _get_secrets_directory() {
+
+    echo "${CUSTOMER_DIR}/${ARNOLD_CUSTOMER}/${ARNOLD_ENVIRONMENT}/secrets"
+}
+
+# _get_vault_password: get vault password from a gpg encrypted file
+#
+# This function prints the content of a gpg encrypted password file for a
+# particular customer in a particular environment.
+function _get_vault_password() {
+
+    # Echo the password here if set from the shell or cli argument
+    if [[ ${USE_GPG} -eq 0 ]]; then
+      echo -n "${ANSIBLE_VAULT_PASSWORD}"
+      return
+    fi
+
+    GPG_PASSWORD_FILE=$(_get_vault_password_file)
+
+    # If gpg is not installed nor configured (e.g. in the CI environment),
+    # return a fake password with a message hoping that the vault password is
+    # not required for this action.
+    if ! command -v gpg > /dev/null; then
+        log warning "gpg command not found. Arnold won't be able to decrypt vaults."
+        return
+    fi
+
+    if [ -e "${GPG_PASSWORD_FILE}" ]; then
+        gpg -d --quiet --batch "${GPG_PASSWORD_FILE}"
+    else
+        log error "Vault password file for configured namespase is missing. Expected path is:\\n${GPG_PASSWORD_FILE}"
+        exit 10
+    fi
+}
+
+# _set_vault_password: set vault password to a gpg encrypted file
+#
+# This function generates a random password and saves it in a gpg-encrypted file
+# for a particular customer in a particular environment.
+function _set_vault_password() {
+
+    local force=${1:0};
+    local skip=${1:0};
+
+    if [ ! -e "${TEAM_FILE}" ]; then
+        log error ".team file does not exist"
+        exit 12
+    fi
+
+    SECRETS_PATH=$(_get_secrets_directory)
+
+    if [[ ! -d ${SECRETS_PATH} && ${skip} -eq 1 ]]; then
+        log error "The 'secrets' directory does not exist and skip option is being used"
+        log error "Vault password file will not be generated"
+        return
+    fi
+
+    # Make a recipients list from emails in $TEAM_FILE. Lines starting with a
+    # '#' will be treated as comments.
+    recipients=$(grep -vE "^\\s*#" "${TEAM_FILE}" | sed 's/\s*\(\S*@\S*\)\s*/-r \1 /g' | tr -d '\n')
+
+    GPG_PASSWORD_FILE=$(_get_vault_password_file)
+
+    if [[ -z "${recipients}" ]]; then
+        log error "No recipient provided, please populate expected .team file"
+        exit 10
+    fi
+
+    if [[ -e "${GPG_PASSWORD_FILE}" && $force -eq 0 ]]; then
+        log error "Vault password file already exists: ${GPG_PASSWORD_FILE}"
+        exit 11
+    else
+        # Generate a 128 characters long random password, encrypt it and save it
+        # to $GPG_PASSWORD_FILE
+        #
+        # shellcheck disable=SC2086
+        # (☝ we want word splitting on the recipients variable)
+        gpg -a --gen-random 2 128 | gpg --yes -e ${recipients} -o "${GPG_PASSWORD_FILE}"
+    fi
+
+    log success "Generated ansible vault password file: ${GPG_PASSWORD_FILE}"
+}
+
+
+# _set_tray_vars: set in-development tray variables
+function _set_tray_vars() {
+
+  if [[ ! -f ${ARNOLD_TRAY_FILE} ]]; then
+    log info "Tray file is missing, supposing you are not developing a local tray"
+    return
+  fi
+
+  ARNOLD_TRAY_PATH=$(${YQ} r "${ARNOLD_TRAY_FILE}" source.path)
+  export ARNOLD_TRAY_PATH
+  log debug "Tray path: ${ARNOLD_TRAY_PATH}"
+
+  ARNOLD_TRAY_NAME=$(${YQ} r "${ARNOLD_TRAY_FILE}" metadata.name)
+  export ARNOLD_TRAY_NAME
+  log debug "Tray name: ${ARNOLD_TRAY_NAME}"
+}
+
+# _k8s_pause_entity : scale down all kubernetes entities of a specific type
+#
+# usage : _k8s_pause_entity namespace entity_type selector
+function _k8s_pause_entity() {
+  local namespace="${1}"
+  local entity_type="${2}"
+  local selector="${3}"
+  local entity_name
+  local entity_replicas
+  local entity_old_replicas_annotation
+
+  ${KUBECTL} get -l "${selector}" "${entity_type}" -n "${namespace}" -o json | \
+  ${JQ} -r '.items[] | [.metadata.name, .spec.replicas, (.metadata.annotations."'"${entity_type}"'.kubernetes.io/old-replicas" // "NOT-PAUSED") ] | @tsv' | \
+  while IFS=$'\t' read -r -a entity_status
+  do
+    entity_name="${entity_status[0]}"
+    entity_replicas="${entity_status[1]}"
+    entity_old_replicas_annotation="${entity_status[2]}"
+
+    # We only process the entities that are not already paused
+    if [[ "${entity_old_replicas_annotation}" != "NOT-PAUSED" ]]; then
+      log info "Ignoring ${entity_type} ${entity_name} that is already paused"
+      continue;
+    fi
+
+    log info "Scaling down ${entity_type} ${entity_name}"
+
+    # Annotate the entity to store the current number of replicas
+    ${KUBECTL} annotate "${entity_type}" "${entity_name}" -n "${namespace}" "${entity_type}.kubernetes.io/old-replicas=${entity_replicas}"
+
+    # Scale down the entity
+    ${KUBECTL} scale "${entity_type}" "${entity_name}" -n "${namespace}" --replicas=0
+  done
+}
+
+# _k8s_resume_entity : restore all kubernetes entities of a specific type
+#
+# usage : _k8s_resume_entity namespace entity_type selector
+function _k8s_resume_entity() {
+  local namespace="${1}"
+  local entity_type="${2}"
+  local selector="${3}"
+  local entity_name
+  local entity_replicas
+  local entity_old_replicas_annotation
+
+  ${KUBECTL} get -l "${selector}" "${entity_type}" -n "${namespace}" -o json | \
+  ${JQ} -r '.items[] | [.metadata.name, .spec.replicas, (.metadata.annotations."'"${entity_type}"'.kubernetes.io/old-replicas" // "NOT-PAUSED") ] | @tsv' | \
+  while IFS=$'\t' read -r -a entity_status
+  do
+    entity_name="${entity_status[0]}"
+    entity_replicas="${entity_status[1]}"
+    entity_old_replicas_annotation="${entity_status[2]}"
+
+    # We only process the entities that are paused
+    if [[ "${entity_old_replicas_annotation}" = "NOT-PAUSED" ]]; then
+      log info "Ignoring ${entity_type} ${entity_name} that is not paused"
+      continue;
+    fi
+
+    log info "Scaling up ${entity_type} ${entity_name}"
+
+    # Scale up the entity with the replicas count value stored in the annotation
+    ${KUBECTL} scale "${entity_type}" "${entity_name}" -n "${namespace}" --replicas="${entity_old_replicas_annotation}"
+
+    # Remove the annotation
+    ${KUBECTL} annotate "${entity_type}" "${entity_name}" -n "${namespace}" "${entity_type}.kubernetes.io/old-replicas-"
+
+  done
+}
+
+# _docker_run: wrap docker run command
+#
+# usage: _docker_run [OPTIONS] [COMMAND]
+#
+#   COMMAND: command to be run in Arnold container (_e.g._ deploy)
+#
+# NB: the docker run call overrides Arnold's default `${CUSTOMER_DIR}` directory
+# by Matsuo's definitions.
+function _docker_run() {
+
+    declare _defaults
+    _defaults="$(dirname "$(readlink -f "$0")")/_defaults"
+
+    declare extra_volumes="\
+      -v ${COMMON_DIR}:/app/${RELATIVE_COMMON_DIR} \
+      -v ${CUSTOMER_DIR}:/app/${RELATIVE_CUSTOMER_DIR}"
+
+    if [[ ! -d ${COMMUNITY_APPS_DIR} ]]; then
+      mkdir -p "${COMMUNITY_APPS_DIR}"
+    fi
+
+    extra_volumes="${extra_volumes} \
+      -v ${COMMUNITY_APPS_DIR}:/app/${RELATIVE_COMMUNITY_APPS_DIR}"
+
+    if [[ -f ${REGISTRY_FILE} ]]; then
+      extra_volumes="${extra_volumes} \
+        -v ${REGISTRY_FILE}:/app/${RELATIVE_REGISTRY_FILE}"
+    fi
+    if [[ -f ${DEPENDENCIES_FILE} ]]; then
+      extra_volumes="${extra_volumes} \
+        -v ${DEPENDENCIES_FILE}:/app/${RELATIVE_DEPENDENCIES_FILE}"
+    fi
+
+    # Override default env_types if the local env_type dir exists
+    if [[ -d ${ENV_TYPE_DIR} ]]; then
+      extra_volumes="${extra_volumes} \
+        -v ${ENV_TYPE_DIR}:/app/${RELATIVE_ENV_TYPE_DIR}"
+    fi
+
+    # Add extra volumes to override apps or whatever we will need
+    for volume in "${ARNOLD_EXTRA_VOLUMES[@]}"; do
+      extra_volumes="${extra_volumes} \
+        -v ${volume}"
+    done
+
+    # Get password from gpg-encrypted vault password
+    ANSIBLE_VAULT_PASSWORD=$(_get_vault_password)
+    export ANSIBLE_VAULT_PASSWORD
+
+    # Check we are not using arnold's default insecure vault password
+    if [[ -f "${_defaults}"  ]]; then
+      # shellcheck source=bin/_defaults
+      source "${_defaults}"
+      if [[ "${ANSIBLE_VAULT_PASSWORD}" == "${ARNOLD_DEFAULT_VAULT_PASSWORD}" ]]; then
+        log critical "Using Arnold's default password in production is highly insecure!"
+        log critical "Set the ANSIBLE_VAULT_PASSWORD environment variable to a different value"
+      fi
+    fi
+
+    if [[ DEV_MODE -eq 1 ]]; then
+      _set_tray_vars
+
+      if [[ -e ${ARNOLD_TRAY_PATH} ]]; then
+        extra_volumes="${extra_volumes} \
+          -v ${PWD}/${ARNOLD_TRAY_PATH}:/app/apps/${ARNOLD_TRAY_NAME}"
+        log info "Development mode activated for tray: ${ARNOLD_TRAY_NAME}"
+      else
+        extra_volumes="-v ${PWD}:/app"
+        log info "Full development mode activated"
+      fi
+    fi
+
+    if tty > /dev/null ; then
+      # If we are in a terminal, add the `-t` option to docker run
+      DOCKER_TERM_OPTIONS="-ti"
+    else
+      DOCKER_TERM_OPTIONS="-i"
+    fi
+
+    # shellcheck disable=SC2086
+    docker run --rm "${DOCKER_TERM_OPTIONS}" \
+        -u "${DOCKER_USER}" \
+        --env K8S_AUTH_API_KEY \
+        --env K8S_AUTH_HOST \
+        --env K8S_AUTH_VERIFY_SSL \
+        --env K8S_AUTH_SSL_CA_CERT \
+        --env K8S_AUTH_SSL_CA_CERT_B64 \
+        --env K8S_DOMAIN \
+        --env ANSIBLE_VAULT_PASSWORD \
+        ${extra_volumes} \
+        "${ARNOLD_IMAGE}" \
+        "$@"
+}
+
+# _ansible_playbook: wrap ansible-playbook execution in docker
+#
+# usage: _ansible_playbook [PLAYBOOK] [ARGUMENTS]
+#
+#   PLAYBOOK: the playbook to run (file name)
+#   ARGUMENTS: ansible-playbook command other arguments
+function _ansible_playbook() {
+
+    playbook="$1"
+
+    # Remove first argument from the arguments array
+    shift
+
+    _ensure_k8s_namespace_is_set
+    _docker_run ansible-playbook "${playbook}" \
+        -e "customer=${ARNOLD_CUSTOMER}" \
+        -e "env_type=${ARNOLD_ENVIRONMENT}" \
+        -e "apps_filter=${ARNOLD_APP}" \
+        "$@"
+}
+
+# _get_vaults: get all vaults for a namespace
+function _get_vaults() {
+
+    vaults_path="${CUSTOMER_DIR}/${ARNOLD_CUSTOMER}/${ARNOLD_ENVIRONMENT}/secrets"
+
+    if [ -d "${vaults_path}" ]; then
+        find "${vaults_path}" -type f | grep -Ev "(${VAULT_PASSWORD_FILE_NAME}$|htpasswd$|.gpg$)"
+    fi
+}
+
+# _vault: ansible-vault shortcut
+function _vault(){
+
+    local action="${1}"
+    local vault_path="${2}"
+
+    if [[ ! -e "${vault_path}" ]]; then
+        log warning "Ignore missing vault file (see usage with -h): ${vault_path}"
+        # Ignore this event as there is no big deal and this avoids breaking a
+        # bulk script loop.
+        return
+    fi
+
+    docker_vault_path=${vault_path//"${ARNOLD_PROJECT_PATH}"/"/app"}
+    _docker_run ansible-vault "${action}" "${docker_vault_path}"
+}
+
+
+# ---- Commands ----
+
+# create the namespace
+function create_namespace() {
+
+    _set_k8s_env
+    _ansible_playbook create_namespace.yml "$@"
+}
+
+# Create the acme issuer for the namespace
+function acme() {
+
+    _set_k8s_env
+    _ansible_playbook create_acme.yml "$@"
+}
+
+# Initialize the namespace and deploy its active applications
+function bootstrap() {
+
+    _set_k8s_env
+    _ansible_playbook bootstrap.yml "$@"
+}
+
+# Create or update an k8s object
+function create() {
+
+    OPTS=$(getopt -o "d:ht:" --long "deployment-stamp,help,template" -n "create" -- "$@")
+    eval set -- "$OPTS"
+
+    local deployment
+    local template
+    local usage="Usage: create [OPTIONS] [ARGUMENTS]
+
+OPTIONS:
+  -h, --help                 print this message
+
+ARGUMENTS:
+  -d, --deployement-stamp    target deployment stamp
+  -t, --template             template path of the object to create
+"
+
+    while true; do
+        case "${1}" in
+            -d|--deployment-stamp)
+                deployment="${2}"; shift 2;;
+            -h|--help)
+                echo -e "${usage}" 1>&2
+                return;;
+            -t|--template)
+                template="${2}"; shift 2;;
+            --)
+                shift; break;;
+            *)
+                log error "Invalid option, see usage (-h)."
+                exit 1;;
+        esac
+    done
+
+    if [[ -z ${deployment} || -z ${template} ]]; then
+        log error "You should provide a deployment stamp AND a template path. See usage (-h)."
+        return
+    fi
+
+    _set_k8s_env
+    _ansible_playbook create_object.yml -e "object_template=${template}" -e "deployment_stamp=${deployment}"
+}
+
+# Clean blue-green apps orphan stacks
+function clean() {
+
+    _set_k8s_env
+    _ansible_playbook clean.yml "$@"
+}
+
+# create a vault file for each application
+function create_app_vaults() {
+
+    _ansible_playbook create_vaults.yml "$@"
+}
+
+# Create or update a vault file with databases credentials
+function create_db_vault() {
+
+    _ansible_playbook create_databases_vault.yml "$@"
+}
+
+# create volumes for each application
+function create_volumes() {
+
+    _set_k8s_env
+    _ansible_playbook create_volumes.yml "$@"
+}
+
+# Delete blue-green apps previous stack
+function delete_previous() {
+
+    _set_k8s_env
+    _ansible_playbook delete_previous.yml "$@"
+}
+
+# Deploy all objects defined in all applications
+function deploy() {
+
+    _set_k8s_env
+    _ansible_playbook deploy.yml "$@"
+}
+
+# Initialize a project's htpassword files
+function htpasswd() {
+
+    _ansible_playbook create_htpasswds.yml "$@"
+}
+
+# Display current configuration
+function info() {
+
+    _ensure_k8s_namespace_is_set
+    log info "Project: $(_get_namespace)"
+}
+
+
+# Initialize a project with all its volumes and configmaps
+function init() {
+
+    _set_k8s_env
+    _ansible_playbook init_namespace.yml "$@"
+}
+
+# Install dependencies
+function install_trays() {
+
+    _ansible_playbook fetch_dependencies.yml "$@"
+}
+
+# Create (or updade) project's redirections
+function redirect() {
+
+    _set_k8s_env
+    _ansible_playbook create_redirect.yml "$@"
+}
+
+# Reset vault password for a project (and update all vaults)
+#
+# 1. decrypt all project's vaults
+# 2. remove the encrypted vault password
+# 3. generate a new password
+# 4. encrypt all project's vaults
+function reset_vault_pw() {
+
+    _ensure_k8s_namespace_is_set
+
+    vaults decrypt
+    vault_pw -fs
+    vaults encrypt
+}
+
+# Scale down all deployments of the namespace
+#
+# args:
+#   selector: only request objects matching the k8s label selector
+function pause() {
+  _set_k8s_env
+
+  local selector="${1}"
+  if [[ -n "${ARNOLD_APP}" ]]; then
+    selector="app=${ARNOLD_APP}"
+  fi
+
+  namespace="$(_get_namespace)"
+  log info "Pausing namespace ${namespace} | selector: ${selector:-all}"
+
+  for entity_type in "deployment" "statefulset" "replicationcontroller"; do
+    _k8s_pause_entity "${namespace}" "${entity_type}" "${selector}"
+  done
+
+  log info "Done"
+}
+
+# Restore all deployments of the namespace that have been
+# scaled down with the pause command.
+#
+# args:
+#   selector: only request objects matching the k8s label selector
+function resume() {
+  _set_k8s_env
+
+  local selector="${1}"
+  if [[ -n "${ARNOLD_APP}" ]]; then
+    selector="app=${ARNOLD_APP}"
+  fi
+
+  namespace="$(_get_namespace)"
+  log info "Resuming namespace ${namespace} | selector: ${selector:-all}"
+
+  for entity_type in "deployment" "statefulset" "replicationcontroller"; do
+    _k8s_resume_entity "${namespace}" "${entity_type}" "${selector}"
+  done
+
+  log info "Done"
+}
+
+# Switch back the previous stack as current
+function rollback() {
+
+    _set_k8s_env
+    _ansible_playbook rollback.yml "$@"
+}
+
+# Create project ingresses and redirections (if any)
+function ingresses() {
+
+    _set_k8s_env
+    _ansible_playbook create_ingresses.yml "$@"
+}
+
+# Run any command in arnold's container
+function run() {
+
+    _docker_run "$@"
+}
+
+# Update project secrets
+function secrets() {
+
+    _set_k8s_env
+    _ansible_playbook create_secrets.yml "$@"
+}
+
+
+# Create arnold-required folders and files
+function setup() {
+
+  declare secrets_directory
+
+  _ensure_k8s_namespace_is_set
+
+  mkdir -p "${COMMON_DIR}"
+  mkdir -p "${CUSTOMER_DIR}/${ARNOLD_CUSTOMER}/${ARNOLD_ENVIRONMENT}"
+
+  log info "Created application directories for ${ARNOLD_CUSTOMER} customer and ${ARNOLD_ENVIRONMENT} environment"
+
+  touch "${CUSTOMER_DIR}/${ARNOLD_CUSTOMER}/main.yml"
+  touch "${CUSTOMER_DIR}/${ARNOLD_CUSTOMER}/${ARNOLD_ENVIRONMENT}/main.yml"
+
+  log info "Created configuration files for ${ARNOLD_CUSTOMER} customer and ${ARNOLD_ENVIRONMENT} environment"
+
+  if [[ ${USE_GPG} -eq 1 ]]; then
+    echo "What is the email attached with your main gpg key used to encrypt documents?"
+    read -r email
+
+    echo "${email}" > .team
+    log info "Created .team file with the following content:\\n$(cat .team)"
+  fi
+
+  secrets_directory=$(_get_secrets_directory)
+
+  mkdir -p "${secrets_directory}"
+  log info "Created secrets directory"
+
+  touch "${secrets_directory}/databases.vault.yml"
+  log info "Created empty databases vault"
+
+  log success "Project has been setup"
+}
+
+# Perform blue/green switch
+function switch() {
+
+    _set_k8s_env
+    _ansible_playbook switch.yml "$@"
+}
+
+# Upgrade Arnold script to the latest release
+function upgrade() {
+
+  declare upgraded_bin
+  declare -i force=0
+
+  OPTS=$(getopt -o "fh" --long "force,help" -n "upgrade" -- "$@")
+  eval set -- "$OPTS"
+
+  while true; do
+      case "${1}" in
+          -f|--force)
+              force=1; shift;;
+          -h|--help)
+              echo -e "Usage: upgrade [OPTIONS]
+
+OPTIONS:
+  -f, --force
+         force overwrite if the file already exists
+  -h, --help
+         print this message
+" 1>&2
+              return;;
+          --)
+              shift; break;;
+          *)
+              log error "Invalid option, see usage (-h)."
+              exit 1;;
+      esac
+  done
+
+  if [[ ("${LATEST_VERSION}" = "${ARNOLD_IMAGE_TAG}") && (${force} -eq 0) ]]; then
+    log error "You are already up-to-date"
+    exit 10
+  fi
+
+  log debug "Current arnold script path: ${SCRIPT_PATH}"
+
+  upgraded_bin=$(_download_latest_release)
+
+  chmod +x "${upgraded_bin}"
+
+  if [[ ${force} -eq 1 ]]; then
+    mv -f "${upgraded_bin}" "${SCRIPT_PATH}"
+  else
+    mv -i "${upgraded_bin}" "${SCRIPT_PATH}"
+  fi
+
+  log success "Arnold has been upgraded with success to the latest ${LATEST_VERSION} release 🎉"
+}
+
+# Wrapper around Ansible's vault command
+#
+# usage: vault [OPTIONS] ACTION
+#
+# OPTIONS:
+#   -a APPLICATION  perform ACTION on the application's vault
+#   -p VAULT_PATH   perform ACTION on the given vault path
+#
+# ACTION:
+#   Any valid ansible-vault action
+function vault() {
+
+    local action
+    local application
+    local vault_path
+
+    _ensure_k8s_namespace_is_set
+
+    OPTS=$(getopt -o "a:p:h" --long "application:,path:,help" -n "vault" -- "$@")
+    eval set -- "$OPTS"
+
+    # Parse options
+    while true; do
+        case "${1}" in
+            -a|--application)
+                application="${2}"
+                vault_path="${RELATIVE_CUSTOMER_DIR}/${ARNOLD_CUSTOMER}/${ARNOLD_ENVIRONMENT}/secrets/${application}.vault.yml"
+                shift 2;;
+            -p|--path)
+                vault_path="${2}"
+                shift 2;;
+            -h|--help)
+                echo -e "Usage: vault [OPTIONS] ACTION
+
+OPTIONS:
+  -a, --application APPLICATION
+         perform ACTION on the application's vault
+  -p, --path VAULT_PATH
+         perform ACTION on the given vault path
+  -h, --help
+         print this message
+
+ACTION:
+  Any valid ansible-vault action (view, encrypt, decrypt, etc.)
+" 1>&2
+                return;;
+            --)
+                shift; break;;
+            *)
+                echo "Invalid option, see usage (-h)." 1>&2
+                exit 1;;
+        esac
+    done
+
+    action="${1}"
+
+    _vault "${action}" "${vault_path}"
+}
+
+# Perform global actions for all project vaults
+function vaults(){
+    local action="${1}"
+
+    _ensure_k8s_namespace_is_set
+
+    vaults="$(_get_vaults)"
+    log info "Vaults found for the current project:\\n${vaults}"
+
+    for vault in ${vaults}; do
+        log info "Processing ${vault} with action ${action}"
+        _vault "${action}" "${vault}"
+    done
+}
+
+# Set a password to encrypt vault files with Ansible Vault
+function vault_pw() {
+
+    local force=0
+    local skip=0
+
+    _ensure_k8s_namespace_is_set
+
+    OPTS=$(getopt -o "fsh" --long "force,skip,help" -n "vault_pw" -- "$@")
+    eval set -- "$OPTS"
+
+    while true; do
+        case "${1}" in
+            -f|--force)
+                force=1; shift;;
+            -s|--skip)
+                skip=1; shift;;
+            -h|--help)
+                echo -e "Usage: vault_pw [OPTIONS]
+
+OPTIONS:
+  -f, --force
+         force overwrite if the file already exists
+  -s, --skip
+         skip a project if the secrets directory does not exist
+  -h, --help
+         print this message
+" 1>&2
+                return;;
+            --)
+                shift; break;;
+            *)
+                log error "Invalid option, see usage (-h)."
+                exit 1;;
+        esac
+    done
+
+    _set_vault_password "${force}"
+}
+
+# ---- Main ----
+
+
+OPTS=$(getopt -o "a:c:e:k:v:dDgh" --long "application:,customer:,environment:,k8s-domain:,extra-volume:,dev,debug,gpg,help" -n "arnold" -- "$@")
+eval set -- "$OPTS"
+
+# Parse options to the `arnold` command
+while true; do
+    case "${1}" in
+        -a|--application)
+            export ARNOLD_APP="${2}"
+            shift 2;;
+        -c|--customer)
+            export ARNOLD_CUSTOMER="${2}"
+            shift 2;;
+        -e|--environment)
+            export ARNOLD_ENVIRONMENT="${2}"
+            shift 2;;
+        -d|--dev)
+            DEV_MODE=1
+            shift;;
+        -D|--debug)
+            LOG_LEVEL=LOG_LEVEL_DEBUG
+            shift;;
+        -g|--gpg)
+            USE_GPG=1
+            shift;;
+        -h|--help)
+            usage 0;;
+        -k|--k8s-domain)
+            export K8S_DOMAIN="${2}"
+            shift 2;;
+        -v|--extra-volume)
+            ARNOLD_EXTRA_VOLUMES+=("${2}")
+            shift 2;;
+        --)
+            shift; break;;
+        *)
+            log error "Invalid option, see usage (-h)."
+            exit 1;;
+    esac
+done
+
+# Print usage if no COMMAND has been passed
+if [[ -z "${1}" ]]; then
+    usage 1
+fi
+
+# Check dependencies
+if ! command -v curl > /dev/null ; then
+  log error "curl is not installed."
+  log info "Please refer to the project's documentation to install curl: https://curl.se"
+  exit 15
+fi
+
+echo -e "
+  O   o--o  o   o  o-o  o     o-o
+ / \\  |   | |\\  | o   o |     |  \\
+o---o O-Oo  | \\ | |   | |     |   O
+|   | |  \\  |  \\| o   o |     |  /
+o   o o   o o   o  o-o  O---o o-o
+
+Command: ${COLOR_BLUE}${*}${COLOR_RESET}
+
+Parameters:
+  K8S_DOMAIN  : ${COLOR_BLUE}${K8S_DOMAIN}${COLOR_RESET}
+  application : ${COLOR_BLUE}${ARNOLD_APP}${COLOR_RESET}
+  customer    : ${COLOR_BLUE}${ARNOLD_CUSTOMER}${COLOR_RESET}
+  environment : ${COLOR_BLUE}${ARNOLD_ENVIRONMENT}${COLOR_RESET}
+  gpg enabled : ${COLOR_BLUE}${USE_GPG}${COLOR_RESET}
+  dev mode    : ${COLOR_BLUE}${DEV_MODE}${COLOR_RESET}
+  log level   : ${COLOR_BLUE}$(_get_log_level_name)${COLOR_RESET}
+  CLI release : ${COLOR_BLUE}${ARNOLD_IMAGE_TAG}${COLOR_RESET}
+  image       : ${COLOR_BLUE}${ARNOLD_IMAGE}${COLOR_RESET}
+  extra volume: ${COLOR_BLUE}${ARNOLD_EXTRA_VOLUMES[*]}${COLOR_RESET}
+"
+
+LATEST_RELEASE=$(_get_latest_release)
+LATEST_VERSION=$(_get_latest_version)
+
+if ! _check_new_release_availability ; then
+  log info "Consider upgrading Arnold using the 'upgrade' command"
+fi
+
+if [[ USE_GPG -eq 0 ]]; then
+  log warning "We strongly recommend to activate the GPG mode to secure your vault passwords"
+fi
+
+# Perform action
+"$@"

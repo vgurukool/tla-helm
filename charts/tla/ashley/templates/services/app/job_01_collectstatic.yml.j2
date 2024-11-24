@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "ashley-app-collectstatic-{{ job_stamp }}"
+  namespace: "{{ namespace_name }}"
+  labels:
+    app: ashley
+    service: app
+    version: "{{ ashley_image_tag }}"
+    job_stamp: "{{ job_stamp }}"
+    # Jobs with the "pre" job type will be executed prior to deployments
+    job_type: "pre"
+    deployment_stamp: "{{ deployment_stamp }}"
+spec:
+  template:
+    metadata:
+      name: "ashley-app-collectstatic-{{ job_stamp }}"
+      labels:
+        app: ashley
+        service: ashley
+        version: "{{ ashley_image_tag }}"
+        deployment_stamp: "{{ deployment_stamp }}"
+        job_stamp: "{{ job_stamp }}"
+    spec:
+{% set image_pull_secret_name = ashley_image_pull_secret_name | default(none) or default_image_pull_secret_name %}
+{% if image_pull_secret_name is not none %}
+      imagePullSecrets:
+        - name: "{{ image_pull_secret_name }}"
+{% endif %}
+      restartPolicy: Never
+      containers:
+        - name: ashley-collectstatic
+          image: "{{ ashley_image_name }}:{{ ashley_image_tag }}"
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: "ashley-app-dotenv-{{ deployment_stamp }}"
+            - secretRef:
+                name: "{{ ashley_secret_name }}"
+          command:
+            - "bash"
+            - "-c"
+            - python manage.py collectstatic --noinput
+{% if ashley_should_activate_static_volume %}
+          volumeMounts:
+            - name: ashley-configmap
+              mountPath: /app/sandbox/configs
+            - mountPath: /data/static
+              name: ashley-v-static
+          resources: {{ ashley_app_job_collectstatic_resources }}
+      volumes:
+        - name: ashley-configmap
+          configMap:
+            defaultMode: 420
+            name: ashley-app-{{ deployment_stamp }}
+        - name: ashley-v-static
+          persistentVolumeClaim:
+            claimName: "{{ ashley_pvc_static_name }}"
+{% endif %}
+      securityContext:
+        runAsUser: {{ container_uid }}
+        runAsGroup: {{ container_gid }}

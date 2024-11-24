@@ -1,0 +1,15 @@
+# customer: {{ customer }}
+# env_type: {{ env_type }}
+
+# postgresql
+{% set postgresql_credentials = databases.postgresql | json_query("[?release=='" ~ ashley_postgresql_version ~ "'].databases | [0][?application=='ashley'].{user: user, password: password} | [0]") %}
+
+DB_USER: {{ postgresql_credentials.user }}
+DB_PASSWORD: {{ postgresql_credentials.password }}
+
+# ashley
+DJANGO_SECRET_KEY: {{ lookup('password', '/dev/null length=50') }}
+
+# AWS Credentials
+DJANGO_AWS_ACCESS_KEY_ID: yourAwsAccessKeyId
+DJANGO_AWS_SECRET_ACCESS_KEY: yourAwsSecretAccessKey

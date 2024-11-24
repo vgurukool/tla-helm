@@ -1,0 +1,18 @@
+{% if richie_should_activate_media_volume %}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "{{ richie_pvc_media_name }}"
+  namespace: "{{ namespace_name }}"
+  labels:
+    app: richie
+    version: "{{ richie_image_tag }}"
+    deployment_stamp: "{{ deployment_stamp }}"
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ richie_media_volume_size }}
+  storageClassName: "{{ default_storage_class_rwx }}"
+{% endif %}

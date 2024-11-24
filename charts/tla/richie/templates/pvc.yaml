@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "{{ .Values.richie.app.pvc_media_name }}"
+  namespace: "{{ .Values.namespace }}"
+  labels:
+    app: richie
+    version: "{{ .Values.richie.app.image_tag }}"
+    deployment_stamp: "{{ .Release.Name }}"
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.richie.app.media_volume_size }}
+  storageClassName: "gp2"

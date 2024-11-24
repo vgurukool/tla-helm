@@ -1,0 +1,109 @@
+
+namespace: "tla-catlog"
+container_uid: 9999
+container_gid: 9999
+# Application default configuration
+richie:
+# -- ingress
+  ingress:
+    host: "richie.{{ namespace_name }}.{{ domain_name }}"
+    class_name: "{{ default_ingress_class_name }}"
+
+  # -- nginx
+
+  nginx : 
+    image_name: "fundocker/richie-demo-nginx"
+    image_tag: "master"
+    port: 8061
+    replicas: 1
+    htpasswd_secret_name: "richie-htpasswd"
+    healthcheck_port: 5000
+    healthcheck_endpoint: "/__healthcheck__"
+    status_endpoint: "/__status__"
+    admin_ip_whitelist: []
+    bypass_htaccess_ip_whitelist: []
+    static_cache_expires: "1M"
+    media_cache_expires: "1M"
+
+  # -- elasticsearch
+  elasticsearch:
+    mage_name: "fundocker/openshift-elasticsearch"
+    image_tag: "6.2.4"
+    host: "elasticsearch"
+    port: 9200
+
+  # -- databases (defaults to postgresql)
+  database:
+    version: "9.6"
+    engine: "django.db.backends.postgresql_psycopg2"
+    image_name: "centos/postgresql-96-centos7"
+    image_tag: "9.6"
+    host: "postgresql"
+    port: 5432
+    name: "richie"
+    secret_name: "richie-database-{{ richie_vault_checksum | default('undefined_richie_vault_checksum') }}"
+
+  # -- richie
+  app:
+    image_name: "fundocker/richie-demo"
+    image_tag: "master"
+  # The image pull secret name should match the name of your secret created to
+  # login to your private docker registry
+    image_pull_secret_name: ""
+    django_port: 8000
+    replicas: 1
+    django_settings_module: "demo.settings"
+    django_configuration: "Development"
+    secret_name: "richie-{{ richie_vault_checksum | default('undefined_richie_vault_checksum') }}"
+    activate_http_basic_auth: false
+  # -- volumes
+  # volume sizes with power of 2 suffices (Ki, Mi, Gi, Ti...) e.g 2Gi and 0 for no volume.
+    media_volume_size: 2Gi
+    should_activate_media_volume: true
+    pvc_media_name: "richie-pvc-media"
+
+  # -- resources requests
+  # {% set app_resources = {
+  #   "requests": {
+  #     "cpu": "5m",
+  #     "memory": "512Mi"
+  #   }
+  # } %}
+
+  richie_app_resources: "{{ app_resources }}"
+  richie_app_job_db_migrate_resources: "{{ app_resources }}"
+  richie_app_job_richie_init_resources: "{{ app_resources }}"
+  richie_app_job_bootstrap_elasticsearch_resources: "{{ app_resources }}"
+
+  richie_elasticsearch_resources:
+    requests:
+      cpu: 10m
+      memory: 2Gi
+  richie_nginx_resources:
+    requests:
+      cpu: 5m
+      memory: 20Mi
+  richie_postgresql_resources:
+    requests:
+      cpu: 10m
+      memory: 100Mi
+
+
+  # postgresql
+
+DB_USER: edxapp_user
+DB_PASSWORD: password
+
+  # richie
+  # DJANGO_SECRET_KEY: {{ lookup('password', '/dev/null length=50') }}
+  # DJANGO_SENTRY_DSN: https://super:richie@sentry.io/foo
+
+DJANGO_SECRET_KEY: " "
+
+
+nginx:
+  enabled: true
+
+
+postgresql:
+  enabled: true

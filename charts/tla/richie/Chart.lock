@@ -1,0 +1,9 @@
+dependencies:
+- name: nginx
+  repository: file://../../bitnami/nginx
+  version: 18.2.2
+- name: postgresql
+  repository: file://../../bitnami/postgresql
+  version: 16.0.0
+digest: sha256:c80ba004b897ff92c880aeaca9cb816630f3635cb7494658ace11fc767cf1e46
+generated: "2024-11-24T12:13:36.216155-06:00"

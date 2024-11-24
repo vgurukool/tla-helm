@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "richie-app-dbmigrate-{{ .Release.Name }}"
+  namespace: "{{ .Values.namespace }}"
+  labels:
+    app: richie
+    service: richie
+    version: "{{ .Values.richie.app.image_tag }}"
+    deployment_stamp: "{{ .Release.Name }}"
+    job_stamp: "{{ .Release.Name }}"
+spec:
+  template:
+    metadata:
+      name: "richie-app-dbmigrate-{{ .Release.Name }}"
+      labels:
+        app: richie
+        service: richie
+        version: "{{ .Values.richie.app.image_tag }}"
+        deployment_stamp: "{{ .Release.Name }}"
+        job_stamp: "{{ .Release.Name }}"
+    spec:
+      containers:
+        - name: richie-dbmigrate
+          image: "{{ .Values.richie.app.image_name }}:{{ .Values.richie.app.image_tag }}"
+          imagePullPolicy: Always
+          env:
+            - name: DJANGO_SETTINGS_MODULE
+              value: {{ .Values.richie.app.django_settings_module }}
+            - name: DJANGO_CONFIGURATION
+              value: {{ .Values.richie.app.django_configuration }}
+            - name: DB_ENGINE
+              value: {{ .Values.richie.database.engine }}
+            - name: DB_NAME
+              value: {{ .Values.richie.database.name }}
+            - name: DB_HOST
+              value: richie-{{ .Values.richie.database.host }}-{{ .Release.Name }}
+            - name: DB_PORT
+              value: {{ .Values.richie.database.port }}
+          envFrom:
+            - secretRef:
+                name: "{{ .Values.richie.app.secret_name }}"
+            - configMapRef:
+                name: "richie-app-dotenv-{{ .Release.Name }}"
+          command:
+            - "bash"
+            - "-c"
+            - python manage.py migrate
+          resources:
+            requests:
+              cpu: "5m"
+              memory: "512Mi"
+      restartPolicy: Never
+      securityContext:
+        runAsUser: {{ .Values.container_uid }}
+        runAsGroup: {{ .Values.container_gid }}

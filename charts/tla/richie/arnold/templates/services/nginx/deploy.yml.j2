@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: Deployment
+metadata:
+  labels:
+    app: richie
+    service: nginx
+    version: "{{ richie_nginx_image_tag }}"
+    deployment_stamp: "{{ deployment_stamp }}"
+  name: "richie-nginx-{{ deployment_stamp }}"
+  namespace: "{{ namespace_name }}"
+spec:
+  replicas: {{ richie_nginx_replicas }}
+  selector:
+    matchLabels:
+      app: richie
+      service: nginx
+      version: "{{ richie_nginx_image_tag }}"
+      deployment: "richie-nginx-{{ deployment_stamp }}"
+      deployment_stamp: "{{ deployment_stamp }}"
+  template:
+    metadata:
+      labels:
+        app: richie
+        service: nginx
+        version: "{{ richie_nginx_image_tag }}"
+        deployment: "richie-nginx-{{ deployment_stamp }}"
+        deployment_stamp: "{{ deployment_stamp }}"
+    spec:
+      # Prefer running pods on different nodes for redundancy
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: deployment
+                  operator: In
+                  values:
+                  - "richie-nginx-{{ deployment_stamp }}"
+              topologyKey: kubernetes.io/hostname
+{% set image_pull_secret_name = richie_nginx_image_pull_secret_name | default(none) or default_image_pull_secret_name %}
+{% if image_pull_secret_name is not none %}
+      imagePullSecrets:
+        - name: "{{ image_pull_secret_name }}"
+{% endif %}
+      containers:
+        - image: "{{ richie_nginx_image_name }}:{{ richie_nginx_image_tag }}"
+          imagePullPolicy: Always
+          name: nginx
+          ports:
+            - containerPort: {{ richie_nginx_port }}
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /etc/nginx/conf.d
+              name: richie-v-nginx
+              readOnly: true
+{% if richie_should_activate_media_volume %}
+            - mountPath: /data/media
+              name: richie-v-media
+              readOnly: true
+{% endif %}
+{% if activate_http_basic_auth or richie_activate_http_basic_auth %}
+            - mountPath: "{{ http_basic_auth_user_file | dirname }}"
+              name: richie-htpasswd
+{% endif %}
+
+          livenessProbe:
+            httpGet:
+              path: "{{ richie_nginx_healthcheck_endpoint }}"
+              port: {{ richie_nginx_healthcheck_port }}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: "{{ richie_nginx_healthcheck_endpoint }}"
+              port: {{ richie_nginx_healthcheck_port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources: {{ richie_nginx_resources }}
+      securityContext:
+        runAsUser: {{ container_uid }}
+        runAsGroup: {{ container_gid }}
+      volumes:
+        - name: richie-v-nginx
+          configMap:
+            name: richie-nginx-{{ deployment_stamp }}
+{% if richie_should_activate_media_volume %}
+        - name: richie-v-media
+          persistentVolumeClaim:
+            claimName: "{{ richie_pvc_media_name }}"
+{% endif %}
+{% if activate_http_basic_auth or richie_activate_http_basic_auth %}
+        - name: richie-htpasswd
+          secret:
+            secretName: "{{ richie_nginx_htpasswd_secret_name }}"
+{% endif %}

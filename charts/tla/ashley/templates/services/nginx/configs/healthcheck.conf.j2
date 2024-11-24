@@ -1,0 +1,14 @@
+server {
+  listen {{ ashley_nginx_healthcheck_port }};
+  server_name localhost;
+
+  location {{ ashley_nginx_healthcheck_endpoint }} {
+    add_header Content-Type text/plain;
+    access_log off;
+    return 200 "OK";
+  }
+
+  location {{ ashley_nginx_status_endpoint }} {
+     stub_status;
+  }
+}

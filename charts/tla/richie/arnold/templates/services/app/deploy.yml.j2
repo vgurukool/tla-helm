@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: Deployment
+metadata:
+  labels:
+    app: richie
+    service: richie
+    version: "{{ richie_image_tag }}"
+    deployment_stamp: "{{ deployment_stamp }}"
+  name: "richie-app-{{ deployment_stamp }}"
+  namespace: "{{ namespace_name }}"
+spec:
+  replicas: {{ richie_app_replicas }}
+  selector:
+    matchLabels:
+      app: richie
+      service: richie
+      version: "{{ richie_image_tag }}"
+      deployment: "richie-app-{{ deployment_stamp }}"
+      deployment_stamp: "{{ deployment_stamp }}"
+  template:
+    metadata:
+      labels:
+        app: richie
+        service: richie
+        version: "{{ richie_image_tag }}"
+        deployment: "richie-app-{{ deployment_stamp }}"
+        deployment_stamp: "{{ deployment_stamp }}"
+    spec:
+      # Prefer running pods on different nodes for redundancy
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: deployment
+                      operator: In
+                      values:
+                        - "richie-app-{{ deployment_stamp }}"
+                topologyKey: kubernetes.io/hostname
+{% set image_pull_secret_name = richie_image_pull_secret_name | default(none) or default_image_pull_secret_name %}
+{% if image_pull_secret_name is not none %}
+      imagePullSecrets:
+        - name: "{{ image_pull_secret_name }}"
+{% endif %}
+      containers:
+        - name: richie
+          image: "{{ richie_image_name }}:{{ richie_image_tag }}"
+          imagePullPolicy: Always
+          livenessProbe:
+            httpGet:
+              path: /__heartbeat__
+              port: {{ richie_django_port }}
+              httpHeaders:
+                - name: Host
+                  value: "{{ richie_host }}"
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /__lbheartbeat__
+              port: {{ richie_django_port }}
+              httpHeaders:
+                - name: Host
+                  value: "{{ richie_host }}"
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          env:
+            - name: DJANGO_SETTINGS_MODULE
+              value: "{{ richie_django_settings_module }}"
+            - name: DJANGO_CONFIGURATION
+              value: "{{ richie_django_configuration }}"
+            - name: DB_ENGINE
+              value: "{{ richie_database_engine }}"
+            - name: DB_NAME
+              value: "{{ richie_database_name }}"
+            - name: DB_HOST
+              value: "richie-{{ richie_database_host }}-{{ deployment_stamp }}"
+            - name: DB_PORT
+              value: "{{ richie_database_port }}"
+            - name: RICHIE_ES_HOST
+              value: "richie-{{ richie_elasticsearch_host }}-{{ deployment_stamp }}"
+          envFrom:
+            - secretRef:
+                name: "{{ richie_secret_name }}"
+            - configMapRef:
+                name: "richie-app-dotenv-{{ deployment_stamp }}"
+          resources: {{ richie_app_resources }}
+{% if richie_should_activate_media_volume %}
+          volumeMounts:
+            - name: richie-v-media
+              mountPath: /data/media
+      volumes:
+        - name: richie-v-media
+          persistentVolumeClaim:
+            claimName: "{{ richie_pvc_media_name }}"
+{% endif %}
+      securityContext:
+        runAsUser: {{ container_uid }}
+        runAsGroup: {{ container_gid }}
