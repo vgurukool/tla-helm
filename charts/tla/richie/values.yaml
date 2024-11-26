@@ -6,8 +6,10 @@ container_gid: 9999
 richie:
 # -- ingress
   ingress:
-    host: "richie.{{ namespace_name }}.{{ domain_name }}"
-    class_name: "{{ default_ingress_class_name }}"
+    enabled: true
+    host: "tla-catlog.tlaidp.com"
+    class: "default_ingress_class_name"
+    tlsSecretName: "tlssecretName"
 
   # -- nginx
 
@@ -41,7 +43,7 @@ richie:
     host: "postgresql"
     port: 5432
     name: "richie"
-    secret_name: "richie-database-{{ richie_vault_checksum | default('undefined_richie_vault_checksum') }}"
+    secret_name: "richie-database-secret"
 
   # -- richie
   app:
@@ -54,7 +56,7 @@ richie:
     replicas: 1
     django_settings_module: "demo.settings"
     django_configuration: "Development"
-    secret_name: "richie-{{ richie_vault_checksum | default('undefined_richie_vault_checksum') }}"
+    secret_name: "richie-secret"
     activate_http_basic_auth: false
   # -- volumes
   # volume sizes with power of 2 suffices (Ki, Mi, Gi, Ti...) e.g 2Gi and 0 for no volume.

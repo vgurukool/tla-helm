@@ -81,7 +81,10 @@ spec:
                 name: "{{ .Values.richie.app.secret_name }}"
             - configMapRef:
                 name: "richie-app-dotenv-{{ .Release.Name }}"
-          resources: {{ .Values.richie.app.resources }}
+          resources:
+            requests:
+              cpu: 5m
+              memory: 512Mi
           volumeMounts:
             - name: richie-v-media
               mountPath: /data/media
