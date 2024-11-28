@@ -52,7 +52,7 @@ richie:
   # The image pull secret name should match the name of your secret created to
   # login to your private docker registry
     image_pull_secret_name: ""
-    django_port: 8000
+    django_port: "8000"
     replicas: 1
     django_settings_module: "demo.settings"
     django_configuration: "Development"
