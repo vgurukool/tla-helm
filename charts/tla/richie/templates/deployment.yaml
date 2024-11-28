@@ -76,8 +76,8 @@ spec:
           envFrom:
             - secretRef:
                 name: "{{ .Values.richie.app.secret_name }}"
-            - configMapRef:
-                name: "richie-app-dotenv-{{ .Release.Name }}"
+            # - configMapRef:
+            #     name: "richie-app-dotenv-{{ .Release.Name }}"
           resources:
             requests:
               cpu: 5m
