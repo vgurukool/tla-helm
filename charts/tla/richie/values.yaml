@@ -41,7 +41,7 @@ richie:
     image_name: "centos/postgresql-96-centos7"
     image_tag: "9.6"
     host: "postgresql"
-    port: "5432_port"
+    port: "5432"
     name: "richie"
     secret_name: "richie-database-secret"
 

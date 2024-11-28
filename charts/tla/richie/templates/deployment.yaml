@@ -5,7 +5,6 @@ metadata:
     app: richie
     service: richie
     version: {{ .Values.richie.app.image_tag }}
-    .Release.Name: "{{ .Release.Name }}"
   name: "richie-app-{{ .Release.Name }}"
   namespace: "{{ .Values.namespace }}"
 spec:
@@ -16,7 +15,6 @@ spec:
       service: richie
       version: {{ .Values.richie.app.image_tag }}
       deployment: "richie-app-{{ .Release.Name }}"
-      .Release.Name: "{{ .Release.Name }}"
   template:
     metadata:
       labels:
@@ -24,7 +22,6 @@ spec:
         service: richie
         version: {{ .Values.richie.app.image_tag }}
         deployment: "richie-app-{{ .Release.Name }}"
-        .Release.Name: "{{ .Release.Name }}"
     spec:
       # Prefer running pods on different nodes for redundancy
       affinity:
