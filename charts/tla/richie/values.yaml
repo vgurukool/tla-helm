@@ -95,6 +95,7 @@ richie:
 
 DB_USER: edxapp_user
 DB_PASSWORD: password
+DJANGO_SECRET_KEY: 'supersecret'
 
   # richie
   # DJANGO_SECRET_KEY: {{ lookup('password', '/dev/null length=50') }}
