@@ -1,0 +1,29 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: richie-ingress
+  {{- if .Values.richie.ingress.annotations }}
+  annotations:
+    {{- .Values.richie.ingress.annotations | toYaml | nindent 4}}
+  {{- end }}
+spec:
+  {{- if .Values.richie.ingress.class }}
+  ingressClassName: {{ .Values.richie.ingress.class }}
+  {{- end }}
+  tls:
+    - hosts:
+        - {{ include ".Values.richie.ingress.hostname" $ }}
+      secretName: {{ include ".Values.richie.ingress.tlsSecretName" $ }}
+  rules:
+    - host: {{ include ".Values.richie.ingress.hostname" $ }}
+      http:
+        paths:
+          - path: /
+            backend:
+              service:
+                name: {{ if .Values.haproxy.enabled }}haproxy{{ else }}web{{ end }}
+                port:
+                  name: http
+            pathType: Prefix
+{{- end }}
