@@ -70,7 +70,7 @@ spec:
             - name: DB_HOST
               value: richie-{{ .Values.richie.database.host }}-{{ .Release.Name }}
             - name: DB_PORT
-              value: {{ .Values.richie.database.port | toString }}
+              value: "{{ .Values.richie.database.port }}"
             - name: RICHIE_ES_HOST
               value: "richie-{{ .Values.richie.elasticsearch.host }}-{{ .Release.Name }}"
           envFrom:
