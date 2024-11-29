@@ -110,3 +110,11 @@ nginx:
 
 postgresql:
   enabled: true
+  global:
+    defaultStorageClass: "gp2"
+    storageClass: "gp2"
+    postgresql:
+      auth:
+        username: "edxapp_user"
+        password: "password"
+        # database: ""
