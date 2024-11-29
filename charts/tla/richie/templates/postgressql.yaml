@@ -18,7 +18,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: richiedb
-  namespace: backstage
+  namespace: tla-catlog
   labels:
     app: richiedb
 spec:
