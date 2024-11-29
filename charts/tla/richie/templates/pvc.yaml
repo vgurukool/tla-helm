@@ -8,9 +8,9 @@ metadata:
     version: "{{ .Values.richie.app.image_tag }}"
     deployment_stamp: "{{ .Release.Name }}"
 spec:
+  storageClassName: "gp2"
   accessModes:
-  - ReadWriteMany
+  - ReadWriteOnce
   resources:
     requests:
       storage: {{ .Values.richie.app.media_volume_size }}
-  storageClassName: "gp2"
