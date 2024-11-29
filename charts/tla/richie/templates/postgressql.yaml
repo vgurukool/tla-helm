@@ -1,0 +1,72 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: richiedb
+  namespace: tla-catlog
+  labels:
+    app: richiedb
+spec:
+  storageClassName: gp2
+  capacity:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: richiedb
+  namespace: backstage
+  labels:
+    app: richiedb
+spec:
+  serviceName: service-richiedb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: richiedb
+  template:
+    metadata:
+      labels:
+        app: richiedb
+    spec:
+      containers:
+      - name: postgres
+        resources:
+          limits:
+            memory: 500Mi
+          requests:
+            cpu: 100m
+            memory: 300Mi
+        image: docker.io/library/postgres:15.3-alpine3.18
+        envFrom:
+        - secretRef:
+            name: {{ .Values.richie.database.secret_name }}
+        ports:
+        - containerPort: 5432
+          name: richiedb
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+          subPath: postgress
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: postgresql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: richiedb
+  namespace: tla-catlog
+  labels:
+    app: richiedb
+spec:
+  ports:
+  - port: 5432
+    name: richiedb
+  clusterIP: None
+  selector:
+    app: richiedb
