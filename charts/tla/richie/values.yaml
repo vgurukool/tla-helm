@@ -93,8 +93,8 @@ richie:
 
   # postgresql
 
-DB_USER: edxapp_user
-DB_PASSWORD: password
+DB_USER: "edxapp_user"
+DB_PASSWORD: "password"
 DJANGO_SECRET_KEY: 'supersecret'
 
   # richie
