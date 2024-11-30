@@ -9,10 +9,10 @@ dependencies:
   name: nginx
   repository: "file://../../bitnami/nginx"
   version: 18.2.2
-# - condition: postgresql.enabled
-#   name: postgresql
-#   repository: "file://../../bitnami/postgresql"
-#   version: 16.0.0
+- condition: postgresql.enabled
+  name: postgresql
+  repository: "file://../../bitnami/postgresql"
+  version: 16.0.0
 description: Richie, the ultimate Learning Content Management System (LCMS)
 icon: https://raw.githubusercontent.com/openfun/logos/main/ralph/ralph-color-dark.png
 name: richie
