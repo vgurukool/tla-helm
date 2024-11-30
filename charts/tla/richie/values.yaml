@@ -43,8 +43,8 @@ richie:
     host: "postgresql"
     port: "5432"
     name: "richie"
-    # secret_name: "richie-database-secret"
-    secret_name: "tla-catlog-postgresql"
+    secret_name: "richie-database-secret"
+    # secret_name: "tla-catlog-postgresql"
 
   # -- richie
   app:
