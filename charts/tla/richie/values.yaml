@@ -40,7 +40,8 @@ richie:
     engine: "django.db.backends.postgresql_psycopg2"
     image_name: "centos/postgresql-96-centos7"
     image_tag: "9.6"
-    host: "postgresql"
+    # host: "postgresql"
+    host: "localhost"
     port: "5432"
     name: "richie"
     secret_name: "richie-database-secret"
@@ -96,6 +97,7 @@ richie:
 
 DB_USER: "edxapp_user"
 DB_PASSWORD: "password"
+DB_NAME: "richie"
 DJANGO_SECRET_KEY: 'supersecret'
 
   # richie
