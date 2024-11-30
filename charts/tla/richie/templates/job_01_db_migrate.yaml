@@ -39,7 +39,7 @@ spec:
               value: "{{ .Values.richie.database.port }}"
           envFrom:
             - secretRef:
-                name: "{{ .Values.richie.app.secret_name }}"
+                name: "{{ .Values.richie.database.secret_name }}"
             # - configMapRef:
             #     name: "richie-app-dotenv-{{ .Release.Name }}"
           command:
