@@ -4,7 +4,9 @@ metadata:
   name: richiedb
   namespace: tla-catlog
   labels:
-    app: richiedb
+    app: richie
+    version: "{{ .Values.richie.app.image_tag }}"
+    deployment_stamp: "{{ .Release.Name }}"
 spec:
   storageClassName: gp2
   capacity:
