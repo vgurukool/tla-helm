@@ -1,7 +1,7 @@
 apiVersion: elasticsearch.k8s.elastic.co/v1
 kind: Elasticsearch
 metadata:
-  name: richie-data-lake
+  name: richie-{{ .Values.richie.elasticsearch.host }}-{{ .Release.Name }}
   namespace: tla-catlog
 spec:
   version: 8.8.1

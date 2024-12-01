@@ -41,8 +41,7 @@ spec:
             - name: DB_PORT
               value: "{{ .Values.richie.database.port }}"
             - name: RICHIE_ES_HOST
-              # value: "richie-{{ .Values.richie.elasticsearch.host }}-{{ .Release.Name }}"
-              value: "richie-data-lake-es-internal-http"
+              value: "richie-{{ .Values.richie.elasticsearch.host }}-{{ .Release.Name }}"
           envFrom:
             - secretRef:
                 name: "{{ .Values.richie.app.secret_name }}"
