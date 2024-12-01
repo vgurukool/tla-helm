@@ -9,4 +9,4 @@ dependencies:
   repository: file://../../bitnami/postgresql
   version: 16.0.0
 digest: sha256:7882cce6afd0bbc6db145516794584b24fd40eba7868983b398e8cb613500fa9
-generated: "2024-12-01T13:56:52.721872-06:00"
+generated: "2024-12-01T14:53:55.882708-06:00"

@@ -124,4 +124,10 @@ postgresql:
   primary:
     configuration:
       listen_addresses = '*'
+
+elasticsearch:
+  enabled: true
+  security:
+    enabled: false
+
       
