@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    app: richie
+    service: postgresql
+  name: "{{ .Values.richie.database.secret_name }}"
+  namespace: "{{ .Values.namespace }}"
+data:
+  POSTGRES_DB: "{{ .Values.DB_NAME | b64enc }}"
+  POSTGRES_USER: "{{ .Values.DB_USER | b64enc }}"
+  POSTGRES_PASSWORD: "{{ .Values.DB_PASSWORD | b64enc }}"

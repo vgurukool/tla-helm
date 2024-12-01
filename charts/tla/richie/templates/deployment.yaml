@@ -68,14 +68,14 @@ spec:
             - name: DB_NAME
               value: {{ .Values.richie.database.name }}
             - name: DB_HOST
-              value: {{ .Values.richie.database.host }}
+              value: {{ .Release.Name }}-{{ .Values.richie.database.host }}
             - name: DB_PORT
               value: "{{ .Values.richie.database.port }}"
             - name: RICHIE_ES_HOST
               value: "richie-{{ .Values.richie.elasticsearch.host }}-{{ .Release.Name }}"
           envFrom:
             - secretRef:
-                name: "{{ .Values.richie.app.secret_name }}"
+                name: "{{ .Values.richie.database.secret_name }}"
             # - configMapRef:
             #     name: "richie-app-dotenv-{{ .Release.Name }}"
           resources:
