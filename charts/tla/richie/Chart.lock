@@ -1,9 +1,12 @@
 dependencies:
+- name: elasticsearch
+  repository: file://../../util/elasticsearch
+  version: 21.3.20
 - name: nginx
   repository: file://../../bitnami/nginx
   version: 18.2.2
 - name: postgresql
   repository: file://../../bitnami/postgresql
   version: 16.0.0
-digest: sha256:c80ba004b897ff92c880aeaca9cb816630f3635cb7494658ace11fc767cf1e46
-generated: "2024-11-30T11:38:25.076408-06:00"
+digest: sha256:7882cce6afd0bbc6db145516794584b24fd40eba7868983b398e8cb613500fa9
+generated: "2024-12-01T13:56:52.721872-06:00"
