@@ -35,8 +35,6 @@ spec:
               value: {{ .Values.richie.database.name }}
             - name: DB_HOST
               value: {{ .Release.Name }}-{{ .Values.richie.database.host }}
-            - name: DB_HOST
-              value: {{ .Release.Name }}-{{ .Values.richie.database.host }}
             - name: DB_PORT
               value: "{{ .Values.richie.database.port }}"
           envFrom:

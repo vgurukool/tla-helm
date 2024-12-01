@@ -37,8 +37,6 @@ spec:
               value: {{ .Release.Name }}-{{ .Values.richie.database.host }}
             - name: DB_PORT
               value: "{{ .Values.richie.database.port }}"
-            - name: DB_USER
-              value: "edxapp_user"
           envFrom:
             - secretRef:
                 name: "{{ .Values.richie.app.secret_name }}"
