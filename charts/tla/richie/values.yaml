@@ -125,9 +125,9 @@ postgresql:
     configuration:
       listen_addresses = '*'
 
-elasticsearch:
-  enabled: true
-  security:
-    enabled: false
+# elasticsearch:
+#   enabled: true
+#   security:
+#     enabled: false
 
       
