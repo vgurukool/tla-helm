@@ -71,6 +71,8 @@ spec:
               value: {{ .Release.Name }}-{{ .Values.richie.database.host }}
             - name: DB_PORT
               value: "{{ .Values.richie.database.port }}"
+            - name: DB_USER
+              value: "edxapp_user"
             - name: RICHIE_ES_HOST
               value: "richie-{{ .Values.richie.elasticsearch.host }}-{{ .Release.Name }}"
           envFrom:
