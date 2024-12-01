@@ -41,7 +41,7 @@ spec:
               value: "edxapp_user"
           envFrom:
             - secretRef:
-                name: "{{ .Values.richie.database.secret_name }}"
+                name: "{{ .Values.richie.app.secret_name }}"
             # - configMapRef:
             #     name: "richie-app-dotenv-{{ .Release.Name }}"
           command:

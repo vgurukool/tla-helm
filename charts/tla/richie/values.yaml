@@ -121,3 +121,7 @@ postgresql:
         username: "edxapp_user"
         password: "password"
         database: "richie"
+  primary:
+    configuration:
+      listen_addresses = '*'
+      

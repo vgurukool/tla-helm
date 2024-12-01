@@ -35,15 +35,13 @@ spec:
               value: {{ .Values.richie.database.name }}
             - name: DB_HOST
               value: {{ .Release.Name }}-{{ .Values.richie.database.host }}
+            - name: DB_HOST
+              value: {{ .Release.Name }}-{{ .Values.richie.database.host }}
             - name: DB_PORT
               value: "{{ .Values.richie.database.port }}"
-            - name: DB_USER
-              value: "edxapp_user"
-            - name: DB_PASSWORD
-              value: "password"
           envFrom:
             - secretRef:
-                name: "{{ .Values.richie.database.secret_name }}"
+                name: "{{ .Values.richie.app.secret_name }}"
             # - configMapRef:
             #     name: "richie-app-dotenv-{{ .Release.Name }}"
           command:
