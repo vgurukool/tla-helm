@@ -1,7 +1,7 @@
 global:
   imageRegistry: ""
   imagePullSecrets: []
-  defaultStorageClass: ""
+  defaultStorageClass: "gp2"
   storageClass: ""
   elasticsearch:
     service:
